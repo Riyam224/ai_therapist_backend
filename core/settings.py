@@ -11,6 +11,10 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "fallback-local-dev-key")
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 ALLOWED_HOSTS = ["*", ".railway.app"]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://web-production-f8628.up.railway.app",
+]
+
 # -----------------------------------------------------
 # Installed apps
 # -----------------------------------------------------
