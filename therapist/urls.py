@@ -1,9 +1,7 @@
 from django.urls import path
-from .views import ai_therapist
-
+from .views import GenerateResponseAPIView, AllHistoryAPIView
 
 urlpatterns = [
-    path("", ai_therapist, name="ai_therapist"),
-    # ← هكذا "" لتكون /api/therapist/ صحيحة
-    path("generate/", ai_therapist, name="ai-generate"),
+    path("generate/", GenerateResponseAPIView.as_view()),
+    path("history/", AllHistoryAPIView.as_view()),
 ]

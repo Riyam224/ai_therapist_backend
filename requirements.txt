@@ -1,7 +1,9 @@
 Django==5.1.4
 djangorestframework==3.17.1
-gunicorn
-transformers==4.36.2
+gunicorn==25.3.0
 torch==2.1.0
-tokenizers==0.15.2
-psycopg2-binary
+transformers==4.36.2
+numpy==2.2.6
+whitenoise==6.5.0
+requests==2.33.0
+certifi==2026.2.25

@@ -5,4 +5,4 @@ from .models import MoodEntry
 class MoodEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = MoodEntry
-        fields = ["id", "emoji", "thoughts", "ai_response", "created_at"]
+        fields = "__all__"
