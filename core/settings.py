@@ -1,12 +1,14 @@
 # -----------------------------------------------------
 # Base settings
 # -----------------------------------------------------
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "django-insecure-(fg@l)w#qu7wp$o_t)05c+d*q^f%p*l^^or9#ctrpfz*e0kn+q"
-DEBUG = False
+# Move to Railway environment variables
+SECRET_KEY = os.environ.get("SECRET_KEY", "fallback-local-dev-key")
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 ALLOWED_HOSTS = ["*", ".railway.app"]
 
 # -----------------------------------------------------
