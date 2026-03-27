@@ -3,8 +3,7 @@ anyio==4.13.0
 asgiref==3.11.1
 certifi==2026.2.25
 click==8.3.1
-Django==6.0.3
-djangorestframework==3.17.1
+Django==5.1.4djangorestframework==3.17.1
 filelock==3.25.2
 fsspec==2026.2.0
 gunicorn==25.2.0
