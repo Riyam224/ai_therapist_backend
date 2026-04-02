@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "drf_spectacular",
     "therapist",
 ]
 
@@ -108,5 +109,36 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
-    ]
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "MindEase AI Therapist API",
+    "DESCRIPTION": """
+## Welcome to MindEase API 🌸
+
+MindEase is an AI-powered mood journal that uses GROQ AI 
+to provide empathetic responses to your emotional entries.
+
+### Features
+- 🤖 AI-powered emotional support responses
+- 📔 Mood journal with history tracking  
+- 😔 Emoji-based mood selection
+- 💜 Powered by GROQ llama-3.1-8b-instant
+    """,
+    "VERSION": "1.0.0",
+    "CONTACT": {
+        "name": "Riyam",
+        "email": "your@email.com",
+    },
+    "LICENSE": {"name": "MIT"},
+    "SERVE_INCLUDE_SCHEMA": False,
+    "TAGS": [
+        {
+            "name": "Therapist",
+            "description": "AI mood journal endpoints",
+        },
+    ],
 }
