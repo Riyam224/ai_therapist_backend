@@ -7,10 +7,15 @@ from drf_spectacular.utils import (
     OpenApiResponse,
 )
 from .ai_model import generate_ai_response
-from .models import MoodEntry
 from .serializers import MoodEntrySerializer
 from datetime import datetime, timedelta
 from django.conf import settings
+
+
+from drf_spectacular.utils import extend_schema, OpenApiResponse
+from django.utils import timezone
+from .models import MoodEntry
+import requests as http_requests
 
 
 class GenerateResponseAPIView(APIView):
@@ -132,6 +137,203 @@ Each entry contains:
         return Response(MoodEntrySerializer(entries, many=True).data)
 
 
+# class WeeklyLetterAPIView(APIView):
+
+#     @extend_schema(
+#         tags=["Therapist"],
+#         summary="Get Luna's weekly letter",
+#         description="Generates a personal weekly letter from Luna based on recent entries.",
+#         responses={200: OpenApiResponse(description="Weekly letter")},
+#     )
+#     def post(self, request):
+#         week_start = datetime.now() - timedelta(days=7)
+#         week_end = datetime.now()
+
+#         # get last 7 days entries
+#         entries = MoodEntry.objects.filter(
+#             created_at__gte=week_start,
+#         ).order_by("created_at")
+
+#         # need at least 2 entries
+#         if entries.count() < 2:
+#             return Response(
+#                 {"letter": None, "reason": "not_enough_entries"},
+#                 status=status.HTTP_200_OK,
+#             )
+
+#         # format for AI
+#         formatted_entries = "\n".join(
+#             [
+#                 f"- {e.created_at.strftime('%A')}: "
+#                 f"felt {e.emoji}, wrote: '{e.thoughts[:100]}'"
+#                 for e in entries
+#             ]
+#         )
+
+#         # dominant emoji this week
+#         emoji_list = [e.emoji for e in entries]
+#         dominant_emoji = max(set(emoji_list), key=emoji_list.count)
+
+#         # call GROQ
+#         import requests as http_requests
+
+#         groq_api_key = getattr(settings, "GROQ_API_KEY", None)
+#         headers = {
+#             "Authorization": f"Bearer {groq_api_key}",
+#             "Content-Type": "application/json",
+#         }
+#         payload = {
+#             "model": "llama-3.1-8b-instant",
+#             "messages": [
+#                 {
+#                     "role": "system",
+#                     "content": (
+#                         "You are Luna, a warm and empathetic AI journal "
+#                         "companion in the MindEase app. Write a short "
+#                         "personal weekly letter summarizing the emotional "
+#                         "week. Your letter must:\n"
+#                         '- Start with "Dear friend,"\n'
+#                         "- Be 3-4 short paragraphs\n"
+#                         "- Reference specific moods from the entries\n"
+#                         "- Be warm, encouraging, never clinical\n"
+#                         '- End with "— Luna 🌿"\n'
+#                         "- Be under 200 words"
+#                     ),
+#                 },
+#                 {
+#                     "role": "user",
+#                     "content": (
+#                         f"Write a weekly letter based on these entries:\n\n"
+#                         f"{formatted_entries}\n\n"
+#                         f"Entry count: {entries.count()}\n"
+#                         f"Dominant mood: {dominant_emoji}"
+#                     ),
+#                 },
+#             ],
+#         }
+#         groq_response = http_requests.post(
+#             "https://api.groq.com/openai/v1/chat/completions",
+#             json=payload,
+#             headers=headers,
+#         )
+#         response = groq_response.json()
+
+#         return Response(
+#             {
+#                 "letter": response["choices"][0]["message"]["content"],
+#                 "stats": {
+#                     "entry_count": entries.count(),
+#                     "dominant_emoji": dominant_emoji,
+#                     "streak": entries.count(),
+#                     "week_start": week_start.strftime("%Y-%m-%d"),
+#                     "week_end": week_end.strftime("%Y-%m-%d"),
+#                 },
+#             },
+#             status=status.HTTP_200_OK,
+#         )
+
+
+# from rest_framework.views import APIView
+# from rest_framework.response import Response
+# from drf_spectacular.utils import extend_schema, OpenApiResponse
+# from datetime import datetime, timedelta
+# from django.conf import settings
+# from .models import MoodEntry
+# import requests as http_requests
+
+
+# class WeeklyLetterAPIView(APIView):
+
+#     @extend_schema(
+#         tags=["Therapist"],
+#         summary="Get Luna's weekly letter",
+#         description="Generates a personal weekly letter from Luna based on recent entries.",
+#         responses={200: OpenApiResponse(description="Weekly letter")},
+#     )
+#     def get(self, request):
+#         week_start = datetime.now() - timedelta(days=7)
+#         week_end = datetime.now()
+
+#         # get last 7 days entries
+#         entries = MoodEntry.objects.filter(
+#             created_at__gte=week_start,
+#         ).order_by("created_at")
+
+#         # need at least 2 entries
+#         if entries.count() < 2:
+#             return Response(
+#                 {"letter": None, "reason": "not_enough_entries"},
+#                 status=200,
+#             )
+
+#         # format for AI
+#         formatted_entries = "\n".join(
+#             [
+#                 f"- {e.created_at.strftime('%A')}: "
+#                 f"felt {e.emoji}, wrote: '{e.thoughts[:100]}'"
+#                 for e in entries
+#             ]
+#         )
+
+#         # dominant emoji this week
+#         emoji_list = [e.emoji for e in entries]
+#         dominant_emoji = max(set(emoji_list), key=emoji_list.count)
+
+#         # call GROQ AI
+#         groq_api_key = getattr(settings, "GROQ_API_KEY", None)
+#         headers = {
+#             "Authorization": f"Bearer {groq_api_key}",
+#             "Content-Type": "application/json",
+#         }
+#         payload = {
+#             "model": "llama-3.1-8b-instant",
+#             "messages": [
+#                 {
+#                     "role": "system",
+#                     "content": (
+#                         "You are Luna, a warm and empathetic AI journal "
+#                         "companion in the MindEase app. Write a short "
+#                         "personal weekly letter summarizing the emotional "
+#                         "week. Your letter must:\n"
+#                         '- Start with "Dear friend,"\n'
+#                         "- Be 3-4 short paragraphs\n"
+#                         "- Reference specific moods from the entries\n"
+#                         "- Be warm, encouraging, never clinical\n"
+#                         '- End with "— Luna 🌿"\n'
+#                         "- Be under 200 words"
+#                     ),
+#                 },
+#                 {
+#                     "role": "user",
+#                     "content": (
+#                         f"Write a weekly letter based on these entries:\n\n"
+#                         f"{formatted_entries}\n\n"
+#                         f"Entry count: {entries.count()}\n"
+#                         f"Dominant mood: {dominant_emoji}"
+#                     ),
+#                 },
+#             ],
+#         }
+#         groq_response = http_requests.post(
+#             "https://api/groq.com/openai/v1/chat/completions",
+#             json=payload,
+#             headers=headers,
+#         )
+#         response = groq_response.json()
+
+#         return Response(
+#             {
+#                 "letter": response["choices"][0]["message"]["content"],
+#                 "stats": {
+#                     "entry_count": entries.count(),
+#                     "dominant_emoji": dominant_emoji,
+#                     "streak": entries.count(),
+#                     "week_start": week_start.strftime("%Y-%m-%d"),
+#                     "week_end": week_end.strftime("%Y-%m-%d"),
+#                 },
+#             },
+#             status=200,
+#         )
 class WeeklyLetterAPIView(APIView):
 
     @extend_schema(
@@ -140,23 +342,29 @@ class WeeklyLetterAPIView(APIView):
         description="Generates a personal weekly letter from Luna based on recent entries.",
         responses={200: OpenApiResponse(description="Weekly letter")},
     )
-    def post(self, request):
-        week_start = datetime.now() - timedelta(days=7)
-        week_end = datetime.now()
+    def get(self, request):
+        """
+        GET endpoint to fetch a weekly letter from Luna.
+        - Timezone-aware datetime used to fetch entries correctly.
+        - Requires at least 2 entries in the last 7 days.
+        """
+        # Use timezone-aware datetime
+        week_start = timezone.now() - timedelta(days=7)
+        week_end = timezone.now()
 
-        # get last 7 days entries
-        entries = MoodEntry.objects.filter(
-            created_at__gte=week_start,
-        ).order_by("created_at")
+        # Fetch last 7 days entries
+        entries = MoodEntry.objects.filter(created_at__gte=week_start).order_by(
+            "created_at"
+        )
 
-        # need at least 2 entries
+        # Minimum 2 entries required
         if entries.count() < 2:
             return Response(
                 {"letter": None, "reason": "not_enough_entries"},
-                status=status.HTTP_200_OK,
+                status=200,
             )
 
-        # format for AI
+        # Format entries for AI
         formatted_entries = "\n".join(
             [
                 f"- {e.created_at.strftime('%A')}: "
@@ -165,13 +373,11 @@ class WeeklyLetterAPIView(APIView):
             ]
         )
 
-        # dominant emoji this week
+        # Dominant emoji
         emoji_list = [e.emoji for e in entries]
         dominant_emoji = max(set(emoji_list), key=emoji_list.count)
 
-        # call GROQ
-        import requests as http_requests
-
+        # Call GROQ AI
         groq_api_key = getattr(settings, "GROQ_API_KEY", None)
         headers = {
             "Authorization": f"Bearer {groq_api_key}",
@@ -206,13 +412,15 @@ class WeeklyLetterAPIView(APIView):
                 },
             ],
         }
+
         groq_response = http_requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
+            "https://api/groq.com/openai/v1/chat/completions",
             json=payload,
             headers=headers,
         )
         response = groq_response.json()
 
+        # Return letter + stats
         return Response(
             {
                 "letter": response["choices"][0]["message"]["content"],
@@ -224,5 +432,5 @@ class WeeklyLetterAPIView(APIView):
                     "week_end": week_end.strftime("%Y-%m-%d"),
                 },
             },
-            status=status.HTTP_200_OK,
+            status=200,
         )
