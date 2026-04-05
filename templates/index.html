@@ -866,7 +866,7 @@ footer {
           <a href="/api/redoc/" class="btn-s">📖 ReDoc Docs</a>
         </div>
         <div class="stats">
-          <div><div class="stat-n">2</div><div class="stat-l">Endpoints</div></div>
+          <div><div class="stat-n">3</div><div class="stat-l">Endpoints</div></div>
           <div><div class="stat-n">&lt;1s</div><div class="stat-l">Response time</div></div>
           <div><div class="stat-n">REST</div><div class="stat-l">Standard</div></div>
           <div><div class="stat-n">Free</div><div class="stat-l">No auth needed</div></div>
@@ -912,7 +912,7 @@ footer {
   <div class="wrap">
     <div class="rv">
       <span class="sec-tag">// endpoints</span>
-      <h2>Two clean endpoints.<br>Infinite emotional support.</h2>
+      <h2>Three clean endpoints.<br>Infinite emotional support.</h2>
       <p class="sec-desc">Simple REST API — no authentication required. Send an emoji and your thoughts, get back a caring AI response.</p>
     </div>
 
@@ -943,6 +943,20 @@ footer {
           </div>
         </div>
         <div class="ep-badge">📔 Journal</div>
+      </div>
+
+      <div class="ep">
+        <div class="mth m-post">POST</div>
+        <div>
+          <div class="ep-path">/api/therapist/weekly-letter/</div>
+          <div class="ep-desc">Generate a personalised weekly letter from Luna based on the last 7 days of mood entries. Requires at least 2 entries in the past week. Returns a warm 3–4 paragraph letter, dominant mood emoji, and streak stats.</div>
+          <div class="ep-pills">
+            <span class="pill">No body required</span>
+            <span class="pill pill-g">Returns: letter + stats</span>
+            <span class="pill">Min: 2 entries / week</span>
+          </div>
+        </div>
+        <div class="ep-badge">💌 Weekly</div>
       </div>
     </div>
 
@@ -1134,6 +1148,30 @@ entry = res.<span class="fn">json</span>()
 <span class="fn">curl</span> <span class="str">https://web-production-f8628
   .up.railway.app
   /api/therapist/history/</span></pre>
+      </div>
+
+      <div class="cc">
+        <div class="cc-hdr">
+          <div class="cc-dots"><div class="cd"></div><div class="cd"></div><div class="cd"></div></div>
+          <div class="cc-lbl">Flutter / Dart — weekly letter</div>
+        </div>
+<pre><span class="kw">final</span> response = <span class="kw">await</span> dio.<span class="fn">post</span>(
+  <span class="str">'https://web-production-f8628
+    .up.railway.app
+    /api/therapist/weekly-letter/'</span>,
+);
+
+<span class="cm">// Response</span>
+<span class="pu">{</span>
+  <span class="ky">"letter"</span><span class="pu">:</span> <span class="str">"Dear friend, ..."</span><span class="pu">,</span>
+  <span class="ky">"stats"</span><span class="pu">: {</span>
+    <span class="ky">"entry_count"</span><span class="pu">:</span>     <span class="num">5</span><span class="pu">,</span>
+    <span class="ky">"dominant_emoji"</span><span class="pu">:</span>  <span class="str">"😔"</span><span class="pu">,</span>
+    <span class="ky">"streak"</span><span class="pu">:</span>          <span class="num">5</span><span class="pu">,</span>
+    <span class="ky">"week_start"</span><span class="pu">:</span>      <span class="str">"2026-03-29"</span><span class="pu">,</span>
+    <span class="ky">"week_end"</span><span class="pu">:</span>        <span class="str">"2026-04-05"</span>
+  <span class="pu">}</span>
+<span class="pu">}</span></pre>
       </div>
 
     </div>

@@ -8,6 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Move to Railway environment variables
 SECRET_KEY = os.environ.get("SECRET_KEY", "fallback-local-dev-key")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 ALLOWED_HOSTS = ["*", ".railway.app"]
 
