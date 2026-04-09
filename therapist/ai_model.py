@@ -3,7 +3,10 @@ import requests
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
-def generate_ai_response(emoji, thoughts):
+
+def generate_ai_response(emoji, thoughts, history=None):
+    history = history or []
+
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -15,14 +18,18 @@ def generate_ai_response(emoji, thoughts):
             {
                 "role": "system",
                 "content": (
-                    "You are a warm, supportive AI therapist. "
+                    "You are Luna, a warm, supportive AI therapist. "
                     "Write a short, empathetic, modern response with kindness. "
-                    "Use simple emotional language and avoid long paragraphs."
+                    "Use simple emotional language and avoid long paragraphs. "
+                    "When the user expresses they feel better, relieved, or grateful, "
+                    "respond warmly and end your message with the tag: [SESSION_END]"
                 ),
             },
+            *history,
             {"role": "user", "content": f"Emoji: {emoji}\nThoughts: {thoughts}"},
         ],
     }
+
     response = requests.post(url, json=payload, headers=headers)
     data = response.json()
     return data["choices"][0]["message"]["content"]

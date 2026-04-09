@@ -32,7 +32,36 @@ class MoodEntryCreateSerializer(serializers.ModelSerializer):
         max_length=128,
         validators=[USER_ID_VALIDATOR],
     )
+    history = serializers.ListField(
+        child=serializers.DictField(
+            child=serializers.CharField(),
+        ),
+        required=False,
+        default=list,
+    )
 
     class Meta:
         model = MoodEntry
-        fields = ("user_id", "emoji", "thoughts")
+        fields = ("user_id", "emoji", "thoughts", "history")
+        extra_kwargs = {
+            "history": {"write_only": True},
+        }
+
+
+class MoodEntryCreateSerializer(serializers.ModelSerializer):
+    user_id = serializers.CharField(
+        min_length=3,
+        max_length=128,
+        validators=[USER_ID_VALIDATOR],
+    )
+    history = serializers.ListField(
+        child=serializers.DictField(
+            child=serializers.CharField(),
+        ),
+        required=False,
+        default=list,
+    )
+
+    class Meta:
+        model = MoodEntry
+        fields = ("user_id", "emoji", "thoughts", "history")

@@ -9,11 +9,8 @@ from drf_spectacular.utils import (
 )
 from .ai_model import generate_ai_response
 from .serializers import MoodEntrySerializer, MoodEntryCreateSerializer
-from datetime import datetime, timedelta
+from datetime import timedelta
 from django.conf import settings
-
-
-from drf_spectacular.utils import extend_schema, OpenApiResponse
 from django.utils import timezone
 from .models import MoodEntry
 import requests as http_requests
@@ -43,6 +40,17 @@ The entry is automatically saved to your journal history.
                         "type": "string",
                         "example": "I feel overwhelmed lately",
                     },
+                    "history": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "role": {"type": "string", "example": "user"},
+                                "content": {"type": "string", "example": "I feel sad"},
+                            },
+                        },
+                        "example": [],
+                    },
                 },
                 "required": ["user_id", "emoji", "thoughts"],
             }
@@ -58,6 +66,7 @@ The entry is automatically saved to your journal history.
                     "user_id": "user_123",
                     "emoji": "😔",
                     "thoughts": "I feel very overwhelmed with everything lately",
+                    "history": [],
                 },
                 request_only=True,
             ),
@@ -67,6 +76,7 @@ The entry is automatically saved to your journal history.
                     "user_id": "user_123",
                     "emoji": "😊",
                     "thoughts": "I feel happy and grateful today!",
+                    "history": [],
                 },
                 request_only=True,
             ),
@@ -76,6 +86,7 @@ The entry is automatically saved to your journal history.
                     "user_id": "user_123",
                     "emoji": "😰",
                     "thoughts": "I am anxious about my future career",
+                    "history": [],
                 },
                 request_only=True,
             ),
@@ -89,14 +100,13 @@ The entry is automatically saved to your journal history.
         user_id = input_serializer.validated_data["user_id"]
         emoji = input_serializer.validated_data["emoji"]
         thoughts = input_serializer.validated_data["thoughts"]
+        history = input_serializer.validated_data.get("history", [])[-10:]  # ← new
 
         try:
-            ai_reply = generate_ai_response(emoji, thoughts)
+            ai_reply = generate_ai_response(emoji, thoughts, history)  # ← pass history
         except Exception as e:
             print(f"GROQ AI error: {e}")
-            ai_reply = (
-                "Could not generate a response at this time. Please try again later."
-            )
+            ai_reply = "Luna is taking a little break right now. Please try again in a moment 🌿"
 
         entry = MoodEntry.objects.create(
             user_id=user_id,
