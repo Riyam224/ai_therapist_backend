@@ -30,10 +30,12 @@ This is a Django REST Framework application that provides an AI-powered mental h
 2. **View Layer** ([therapist/views.py](therapist/views.py))
    - Uses **class-based APIView** (DRF)
    - `GenerateResponseAPIView`: POST-only endpoint
-     - Validates input with `MoodEntryCreateSerializer` (user_id, emoji, thoughts required)
-     - Calls `generate_ai_response()` from ai_model
+     - Validates input with `MoodEntryCreateSerializer` (user_id, emoji, thoughts required; history optional)
+     - Extracts last 10 items from `history` to cap context window
+     - Calls `generate_ai_response(emoji, thoughts, history)` from ai_model
      - On AI error: catches exception, saves fallback message, still returns 200
      - Creates `MoodEntry` and returns serialized data (200)
+     - Luna may include `[SESSION_END]` tag in `ai_response` when the user feels resolved
    - `AllHistoryAPIView`: GET-only endpoint
      - Requires `user_id` query param — returns 400 if missing
      - Returns entries filtered by `user_id`, ordered by `created_at` DESC
@@ -45,18 +47,20 @@ This is a Django REST Framework application that provides an AI-powered mental h
      - Returns letter text + stats (entry_count, dominant_emoji, streak, week_start, week_end)
 
 3. **AI Service** ([therapist/ai_model.py](therapist/ai_model.py))
-   - Function: `generate_ai_response(emoji, thoughts) -> str`
+   - Function: `generate_ai_response(emoji, thoughts, history=None) -> str`
+   - `history`: optional list of `{"role": "user"|"assistant", "content": "..."}` dicts — injected between system prompt and current user message for multi-turn context
    - Uses **Groq API** (external cloud service), model: `llama-3.1-8b-instant`
    - Requires `GROQ_API_KEY` environment variable
    - Makes REST POST to `https://api.groq.com/openai/v1/chat/completions`
-   - System prompt: warm, supportive AI therapist, short empathetic responses
+   - System prompt: warm, supportive AI therapist; instructs Luna to append `[SESSION_END]` tag when the user expresses feeling better, relieved, or grateful
    - **No local model loading** — stateless, synchronous API calls
    - Does not handle exceptions — caller is responsible
 
 4. **Serializers** ([therapist/serializers.py](therapist/serializers.py))
    - `USER_ID_VALIDATOR`: regex `^[A-Za-z0-9_-]{3,128}$` — used on both serializers
    - `MoodEntrySerializer`: full read serializer — `fields = "__all__"`, `ai_response`/`created_at`/`id` read-only
-   - `MoodEntryCreateSerializer`: write serializer — only exposes `user_id`, `emoji`, `thoughts`
+   - `MoodEntryCreateSerializer`: write serializer — exposes `user_id`, `emoji`, `thoughts`, and optional `history`
+     - `history`: write-only ListField of DictFields (`{"role", "content"}`), defaults to `[]`
 
 ### URL Routing
 
@@ -160,11 +164,13 @@ class TherapistAPITests(TestCase):
 
 **Generation Function**:
 ```python
-generate_ai_response(emoji: str, thoughts: str) -> str
+generate_ai_response(emoji: str, thoughts: str, history: list = None) -> str
 ```
+
+- `history`: list of `{"role": "user"|"assistant", "content": "..."}` message dicts (optional)
 - Makes POST request to Groq API
 - Uses `llama-3.1-8b-instant` model
-- Returns AI-generated response text
+- Returns AI-generated response text; may include `[SESSION_END]` tag at the end
 - Raises exceptions on failure — caller must handle
 
 ### Security Considerations
@@ -208,9 +214,11 @@ gunicorn core.wsgi --log-file -
 
 1. Request received at `POST /api/therapist/generate/`
 2. Input validated by `MoodEntryCreateSerializer` — 400 if invalid
-3. `generate_ai_response()` called; exception caught → fallback message used
-4. `MoodEntry` created with user_id, emoji, thoughts, ai_response
-5. Serialized response returned (200)
+3. `history` extracted from validated data (last 10 items kept to cap context)
+4. `generate_ai_response(emoji, thoughts, history)` called; exception caught → fallback message used
+5. `ai_response` may contain `[SESSION_END]` tag — clients should detect this and close the session
+6. `MoodEntry` created with user_id, emoji, thoughts, ai_response
+7. Serialized response returned (200)
 
 ### GET Request Flow (History Endpoint)
 

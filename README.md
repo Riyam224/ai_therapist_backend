@@ -9,6 +9,8 @@ Powered by **Groq API with Llama 3.1 8B Instant** — no local GPU or ML depende
 ## Features
 
 - **Luna AI responses** — warm, empathetic replies via Groq's fast cloud API
+- **Multi-turn conversations** — pass conversation history so Luna maintains context across messages
+- **Session detection** — Luna appends `[SESSION_END]` when the user feels resolved; clients use this to close sessions
 - **Mood journal** — every entry (emoji + thoughts + AI reply) is saved per user
 - **Weekly letter** — Luna writes a personal weekly reflection based on recent entries
 - **Per-user data isolation** — each user only sees their own entries
@@ -93,11 +95,16 @@ Submit a mood entry. Luna responds with an empathetic message that is saved to t
 {
   "user_id": "user_123",
   "emoji": "😔",
-  "thoughts": "Feeling overwhelmed with everything lately"
+  "thoughts": "Feeling overwhelmed with everything lately",
+  "history": [
+    {"role": "user", "content": "I feel anxious"},
+    {"role": "assistant", "content": "I hear you..."}
+  ]
 }
 ```
 
-**`user_id` rules**: 3–128 characters, letters / numbers / `_` / `-` only.
+- **`user_id`**: required — 3–128 characters, letters / numbers / `_` / `-` only.
+- **`history`**: optional — list of prior `{"role", "content"}` messages for multi-turn context. Only the last 10 items are used.
 
 **Response (200)**:
 ```json
@@ -111,6 +118,8 @@ Submit a mood entry. Luna responds with an empathetic message that is saved to t
 }
 ```
 
+When the user feels better or resolved, Luna's `ai_response` will end with `[SESSION_END]` — clients should detect this tag and close the session.
+
 **Error (400)** — invalid or missing fields:
 ```json
 {
@@ -119,7 +128,7 @@ Submit a mood entry. Luna responds with an empathetic message that is saved to t
 ```
 
 If the Groq API is unavailable, the entry is still saved with a fallback message:
-`"Could not generate a response at this time. Please try again later."`
+`"Luna is taking a little break right now. Please try again in a moment 🌿"`
 
 ---
 
@@ -284,10 +293,10 @@ class TherapistAPITests(TestCase):
 
 ### cURL
 ```bash
-# Generate AI response
+# Generate AI response (with optional conversation history)
 curl -X POST http://localhost:8000/api/therapist/generate/ \
   -H "Content-Type: application/json" \
-  -d '{"user_id": "user_123", "emoji": "😊", "thoughts": "Great day!"}'
+  -d '{"user_id": "user_123", "emoji": "😊", "thoughts": "Great day!", "history": []}'
 
 # Get history
 curl "http://localhost:8000/api/therapist/history/?user_id=user_123"
@@ -298,13 +307,19 @@ curl "http://localhost:8000/api/therapist/weekly-letter/?user_id=user_123"
 
 ### JavaScript (Fetch)
 ```javascript
-// Generate AI response
+// Generate AI response (pass history for multi-turn context)
 const res = await fetch('http://localhost:8000/api/therapist/generate/', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ user_id: 'user_123', emoji: '😊', thoughts: 'Feeling good!' })
+  body: JSON.stringify({
+    user_id: 'user_123',
+    emoji: '😊',
+    thoughts: 'Feeling good!',
+    history: [], // prior [{role, content}] messages
+  })
 });
 const data = await res.json();
+// If data.ai_response includes '[SESSION_END]', close the session
 
 // Get history
 const history = await fetch('http://localhost:8000/api/therapist/history/?user_id=user_123');

@@ -883,10 +883,11 @@ footer {
           </div>
 <pre><span class="cm">// Request body</span>
 <span class="pu">{</span>
-  <span class="ky">"user_id"</span><span class="pu">:</span> <span class="str">"user_123"</span><span class="pu">,</span>
+  <span class="ky">"user_id"</span><span class="pu">:</span>  <span class="str">"user_123"</span><span class="pu">,</span>
   <span class="ky">"emoji"</span><span class="pu">:</span>    <span class="str">"😔"</span><span class="pu">,</span>
   <span class="ky">"thoughts"</span><span class="pu">:</span> <span class="str">"I feel very overwhelmed
-             with everything lately"</span>
+              with everything lately"</span><span class="pu">,</span>
+  <span class="ky">"history"</span><span class="pu">:</span>  <span class="pu">[]</span> <span class="cm">// optional</span>
 <span class="pu">}</span>
 
 <span class="cm">// Response</span>
@@ -897,9 +898,7 @@ footer {
   <span class="ky">"thoughts"</span><span class="pu">:</span>    <span class="str">"I feel very overwhelmed..."</span><span class="pu">,</span>
   <span class="ky">"ai_response"</span><span class="pu">:</span> <span class="str">"It sounds like you're
     carrying a lot right now 💜
-    That feeling is completely
-    valid. One small step at
-    a time..."</span><span class="pu">,</span>
+    One small step at a time..."</span><span class="pu">,</span>
   <span class="ky">"created_at"</span><span class="pu">:</span>  <span class="str">"2026-04-02T19:00:00Z"</span>
 <span class="pu">}</span></pre>
         </div>
@@ -923,9 +922,10 @@ footer {
         <div class="mth m-post">POST</div>
         <div>
           <div class="ep-path">/api/therapist/generate/</div>
-          <div class="ep-desc">Send an emoji + thoughts and receive a warm, empathetic AI response from Luna. The entry is automatically saved to the mood journal history.</div>
+          <div class="ep-desc">Send an emoji + thoughts and receive a warm, empathetic AI response from Luna. Pass optional conversation history for multi-turn context. Luna signals a resolved session with <code>[SESSION_END]</code> in her reply.</div>
           <div class="ep-pills">
             <span class="pill">Body: user_id, emoji, thoughts</span>
+            <span class="pill">Optional: history[]</span>
             <span class="pill pill-g">Returns: MoodEntry object</span>
             <span class="pill">Content-Type: application/json</span>
           </div>
@@ -1003,7 +1003,7 @@ footer {
       <div class="fs">
         <div class="fi">🌐</div>
         <div class="ft">POST request</div>
-        <div class="fd">Send user_id, emoji, thoughts</div>
+        <div class="fd">Send user_id, emoji, thoughts + optional history</div>
       </div>
       <div class="fa"></div>
       <div class="fs">
@@ -1084,14 +1084,16 @@ footer {
     .up.railway.app
     /api/therapist/generate/'</span>,
   data: <span class="pu">{</span>
-    <span class="str">'user_id'</span><span class="pu">:</span> 'user_123',
+    <span class="str">'user_id'</span><span class="pu">:</span>  <span class="str">'user_123'</span>,
     <span class="str">'emoji'</span><span class="pu">:</span>    emojiPath,
     <span class="str">'thoughts'</span><span class="pu">:</span> controller.text,
+    <span class="str">'history'</span><span class="pu">:</span>  conversationHistory,
   <span class="pu">}</span>,
 );
 
 <span class="kw">final</span> entry = MoodEntryModel
-  .<span class="fn">fromJson</span>(response.data);</pre>
+  .<span class="fn">fromJson</span>(response.data);
+<span class="cm">// check entry.aiResponse for [SESSION_END]</span></pre>
       </div>
 
       <div class="cc">
@@ -1122,13 +1124,14 @@ footer {
 BASE = <span class="str">"https://web-production-f8628
   .up.railway.app"</span>
 
-<span class="cm"># Generate response</span>
+<span class="cm"># Generate response (with conversation history)</span>
 res = requests.<span class="fn">post</span>(
   f<span class="str">"{BASE}/api/therapist/generate/"</span>,
   json=<span class="pu">{</span>
-    <span class="str">"user_id"</span><span class="pu">:</span> <span class="str">"user_123"</span>,
+    <span class="str">"user_id"</span><span class="pu">:</span>  <span class="str">"user_123"</span>,
     <span class="str">"emoji"</span><span class="pu">:</span>    <span class="str">"😔"</span>,
     <span class="str">"thoughts"</span><span class="pu">:</span> <span class="str">"I feel overwhelmed"</span>,
+    <span class="str">"history"</span><span class="pu">:</span>  [],
   <span class="pu">}</span>
 )
 entry = res.<span class="fn">json</span>()
