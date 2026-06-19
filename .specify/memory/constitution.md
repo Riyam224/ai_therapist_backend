@@ -1,19 +1,23 @@
 <!--
 Sync Impact Report
-- Version change: [TEMPLATE] → 1.0.0 (initial ratification)
-- Modified principles: n/a (first concrete version, replacing placeholder template)
-- Added sections:
-  - Core Principles: Data Isolation & Privacy, Input & Contract Validation,
-    Resilient External AI Integration, Test Coverage for Critical Flows, Simplicity & Statelessness
-  - Security & Deployment Requirements
-  - Development Workflow
-  - Governance
-- Removed sections: none (template placeholders replaced)
+- Version change: 1.0.0 → 1.1.0
+- Modified principles:
+  - I. Data Isolation & Privacy — generalized beyond `MoodEntry`/`user_id` to
+    require `request.user`-scoping for any authenticated app (e.g. `accounts/`)
+  - II. Input & Contract Validation — examples generalized to reference both
+    `therapist` and `accounts` serializers, not just `therapist`'s
+  - IV. Test Coverage for Critical Flows — generalized from
+    "`therapist/tests.py`"/"`python manage.py test therapist`" to apply to
+    any app's test suite, and from mocking only `generate_ai_response()` to
+    mocking any external/stubbed call (e.g. `accounts`'s email-send stubs)
+- Added sections: none (Security & Deployment Requirements expanded in place)
+- Removed sections: none
 - Templates requiring updates:
-  - ✅ .specify/templates/plan-template.md (generic "[Gates determined based on constitution file]" — no project-specific names to change, gate check reads this file directly)
+  - ✅ .specify/templates/plan-template.md (generic "[Gates determined based on constitution file]" — no change needed, gate check reads this file directly)
   - ✅ .specify/templates/spec-template.md (no constitution references found)
   - ✅ .specify/templates/tasks-template.md (no constitution references found)
   - ✅ .specify/templates/checklist-template.md (no constitution references found)
+  - ✅ CLAUDE.md (already documents `accounts/`'s JWT lifetimes, password policy, and throttling — consistent with the new Security & Deployment Requirements bullets added below)
 - Follow-up TODOs: none
 -->
 
@@ -27,23 +31,30 @@ Every `MoodEntry` query MUST be scoped by `user_id`; no endpoint may return or
 aggregate data across users. `user_id` MUST be validated against the strict
 regex (`^[A-Za-z0-9_-]{3,128}$`) on every serializer that accepts it. New
 endpoints that read or write mood/conversation data MUST filter by `user_id`
-before any other condition is applied.
+before any other condition is applied. For any app with authenticated users
+(e.g. `accounts/`), every endpoint MUST scope reads and writes to
+`request.user` — no endpoint may accept a client-supplied identifier to look
+up or modify another account's data.
 **Rationale**: This is a mental health application handling sensitive
 personal disclosures. A single cross-user data leak is a trust-ending and
-potentially harmful incident, not a recoverable bug.
+potentially harmful incident, not a recoverable bug. The same standard
+applies whether isolation is enforced via a validated `user_id` field or via
+authentication identity — the failure mode (one user seeing another's data)
+is identical.
 
 ### II. Input & Contract Validation
 
 All request input MUST be validated through a DRF serializer before touching
 business logic or the database — no raw `request.data` access in views.
-Read and write concerns MUST use distinct serializers
-(`MoodEntrySerializer` for output, `MoodEntryCreateSerializer` for input) so
-that read-only fields (`id`, `ai_response`, `created_at`) can never be
-client-supplied. API surface changes MUST stay reflected in drf-spectacular
-schema output (`/api/docs/`, `/api/redoc/`).
+Read and write concerns MUST use distinct serializers (e.g.
+`MoodEntrySerializer`/`MoodEntryCreateSerializer` in `therapist`,
+`UserSerializer` plus per-action write serializers in `accounts`) so
+that read-only fields (`id`, `ai_response`, `created_at`, `is_verified`,
+`is_staff`, etc.) can never be client-supplied. API surface changes MUST stay
+reflected in drf-spectacular schema output (`/api/docs/`, `/api/redoc/`).
 **Rationale**: Class-based views plus serializer validation is the existing
 convention; mixing concerns invites unvalidated input reaching the AI
-service or the database.
+service, the database, or the authentication layer.
 
 ### III. Resilient External AI Integration
 
@@ -61,15 +72,19 @@ the entry is still saved for later context.
 
 ### IV. Test Coverage for Critical Flows
 
-Every new or modified endpoint MUST have a corresponding test in
-`therapist/tests.py` covering at least the success path and the primary
-failure mode (missing required field, missing `user_id`, or AI-call
-failure). Tests MUST mock `generate_ai_response()` (or any other external
-API call) — no test may perform a real network call to Groq or any other
-third-party service. `python manage.py test therapist` MUST pass before a
-change is considered complete.
+Every new or modified endpoint MUST have a corresponding test in that app's
+`tests.py` covering at least the success path and the primary failure mode
+(missing required field, missing/invalid identifier, external-call failure,
+or — where applicable — rate-limit exceeded). Tests MUST mock
+`generate_ai_response()`, `accounts`'s `send_password_reset_email()`/
+`send_verification_email()` stubs, or any other external or stubbed call —
+no test may perform a real network call to Groq or any other third-party
+service. `python manage.py test <app>` MUST pass for every touched app
+before a change is considered complete.
 **Rationale**: Network-dependent tests are slow, flaky, and burn real API
-quota; mocking is the only way to keep the suite fast and deterministic.
+quota; mocking is the only way to keep the suite fast and deterministic —
+this applies equally to the AI integration and to any future external
+integration (e.g. real email delivery).
 
 ### V. Simplicity & Statelessness
 
@@ -87,7 +102,8 @@ complexity directly undermines that property.
 
 - Secrets (`GROQ_API_KEY`, `SECRET_KEY`) MUST be supplied via environment
   variables; no secret may be hardcoded or committed, including in tests or
-  fixtures.
+  fixtures. `SECRET_KEY` also signs any JWTs issued by the project — it MUST
+  be a strong, non-default value in production.
 - `DEBUG` MUST default to `False` and only be enabled via environment
   variable in non-production environments.
 - Any new deployed domain MUST be added to both `ALLOWED_HOSTS` and
@@ -95,6 +111,17 @@ complexity directly undermines that property.
 - New endpoints that accept user-supplied identifiers MUST validate them
   with an explicit regex or serializer field constraint — free-text fields
   used as lookup keys are not acceptable.
+- Token-based authentication MUST use explicit, bounded access/refresh token
+  lifetimes plus refresh-token rotation and blacklisting on logout (see
+  `SIMPLE_JWT` in `core/settings.py`) — no endpoint may rely on
+  indefinite-lifetime credentials.
+- Any endpoint that accepts or sets a password MUST enforce a minimum
+  server-side strength policy (see `accounts/validators.py`) — client-side
+  validation alone is not acceptable.
+- Authentication-sensitive endpoints (registration, sign-in, password
+  reset, email verification) MUST be rate-limited per account and per
+  originating IP address (see `accounts/throttling.py` for current
+  thresholds).
 - Static files MUST continue to be served via WhiteNoise in production; no
   endpoint may bypass `collectstatic` asset handling.
 
@@ -109,9 +136,10 @@ complexity directly undermines that property.
 - AI service changes (prompt text, generation parameters, model name) MUST
   be documented in `CLAUDE.md` if they change observable behavior (response
   length, tone rules, `[SESSION_END]` triggering conditions).
-- Before marking work complete, run `python manage.py test therapist` and
-  confirm the relevant endpoint manually (or via a mocked test) against the
-  documented request/response flow in `CLAUDE.md`.
+- Before marking work complete, run the relevant app's test suite
+  (`python manage.py test <app>`) and confirm the relevant endpoint manually
+  (or via a mocked test) against the documented request/response flow in
+  `CLAUDE.md`.
 
 ## Governance
 
@@ -128,4 +156,4 @@ Versioning policy: MAJOR for removal/redefinition of a Core Principle,
 MINOR for a new principle or materially expanded section, PATCH for
 wording/clarification fixes with no rule change.
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-19 | **Last Amended**: 2026-06-19
+**Version**: 1.1.0 | **Ratified**: 2026-06-19 | **Last Amended**: 2026-06-19

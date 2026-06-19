@@ -1,0 +1,1143 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "MindEase AI Therapist API",
+        "version": "1.0.0",
+        "description": "\n## Welcome to MindEase API ðŸŒ¸\n\nMindEase is an AI-powered mood journal that uses GROQ AI \nto provide empathetic responses to your emotional entries.\n\n### Features\n- ðŸ¤– AI-powered emotional support responses\n- ðŸ“” Mood journal with history tracking  \n- ðŸ˜” Emoji-based mood selection\n- ðŸ’œ Powered by GROQ llama-3.1-8b-instant\n    ",
+        "contact": {
+            "name": "Riyam",
+            "email": "your@email.com"
+        },
+        "license": {
+            "name": "MIT"
+        }
+    },
+    "paths": {
+        "/api/accounts/change-password/": {
+            "post": {
+                "operationId": "accounts_change_password_create",
+                "summary": "Change password",
+                "tags": [
+                    "Accounts"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ChangePassword"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ChangePassword"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ChangePassword"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Password changed successfully"
+                    },
+                    "400": {
+                        "description": "Incorrect current password or weak new password"
+                    }
+                }
+            }
+        },
+        "/api/accounts/delete-account/": {
+            "delete": {
+                "operationId": "accounts_delete_account_destroy",
+                "description": "Deletes the authenticated user's account. Owner-only; no request body.",
+                "summary": "Permanently delete account",
+                "tags": [
+                    "Accounts"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Account deleted permanently"
+                    }
+                }
+            }
+        },
+        "/api/accounts/forgot-password/": {
+            "post": {
+                "operationId": "accounts_forgot_password_create",
+                "description": "Always returns success regardless of whether the email is registered (no account-existence disclosure).",
+                "summary": "Request password reset",
+                "tags": [
+                    "Accounts"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ForgotPassword"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ForgotPassword"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ForgotPassword"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Reset email sent (or silently no-op)"
+                    },
+                    "429": {
+                        "description": "Too many attempts (rate limited)"
+                    }
+                }
+            }
+        },
+        "/api/accounts/login/": {
+            "post": {
+                "operationId": "accounts_login_create",
+                "description": "Authenticates with email + password and returns access/refresh tokens.",
+                "summary": "Sign in",
+                "tags": [
+                    "Accounts"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Login"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Login"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Login"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Login successful"
+                    },
+                    "401": {
+                        "description": "Invalid email or password"
+                    },
+                    "429": {
+                        "description": "Too many attempts (rate limited)"
+                    }
+                }
+            }
+        },
+        "/api/accounts/logout/": {
+            "post": {
+                "operationId": "accounts_logout_create",
+                "description": "Blacklists the supplied refresh token. Requires authentication.",
+                "summary": "Sign out",
+                "tags": [
+                    "Accounts"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Logout"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Logout"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Logout"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Logged out successfully"
+                    },
+                    "400": {
+                        "description": "Invalid or expired refresh token"
+                    },
+                    "401": {
+                        "description": "Authentication required"
+                    }
+                }
+            }
+        },
+        "/api/accounts/me/": {
+            "get": {
+                "operationId": "accounts_me_retrieve",
+                "summary": "Get current user's profile",
+                "tags": [
+                    "Accounts"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "accounts_me_partial_update",
+                "description": "Updates editable profile fields only. Email and account-identifying fields are not editable here.",
+                "summary": "Update current user's profile",
+                "tags": [
+                    "Accounts"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedUserProfileUpdate"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedUserProfileUpdate"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedUserProfileUpdate"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Validation failed"
+                    }
+                }
+            }
+        },
+        "/api/accounts/profile-image/": {
+            "post": {
+                "operationId": "accounts_profile_image_create",
+                "description": "Accepts multipart/form-data. Allowed formats: JPG, JPEG, PNG, WEBP. Max size: 5 MB.",
+                "summary": "Upload profile image",
+                "tags": [
+                    "Accounts"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ProfileImage"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ProfileImage"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ProfileImage"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Profile image updated"
+                    },
+                    "400": {
+                        "description": "Unsupported format or file too large"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "accounts_profile_image_destroy",
+                "summary": "Remove profile image",
+                "tags": [
+                    "Accounts"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Profile image removed"
+                    }
+                }
+            }
+        },
+        "/api/accounts/register/": {
+            "post": {
+                "operationId": "accounts_register_create",
+                "description": "Creates an account and immediately returns access/refresh tokens.",
+                "summary": "Register a new account",
+                "tags": [
+                    "Accounts"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Register"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Register"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Register"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Registration successful"
+                    },
+                    "400": {
+                        "description": "Validation failed (e.g. duplicate email, weak password)"
+                    },
+                    "429": {
+                        "description": "Too many attempts (rate limited)"
+                    }
+                }
+            }
+        },
+        "/api/accounts/reset-password/": {
+            "post": {
+                "operationId": "accounts_reset_password_create",
+                "summary": "Reset password with a valid token",
+                "tags": [
+                    "Accounts"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ResetPassword"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ResetPassword"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ResetPassword"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Password reset successfully"
+                    },
+                    "400": {
+                        "description": "Invalid/expired token or weak new password"
+                    }
+                }
+            }
+        },
+        "/api/accounts/send-verification-email/": {
+            "post": {
+                "operationId": "accounts_send_verification_email_create",
+                "description": "Issues a verification token for the authenticated user. No-ops gracefully if already verified.",
+                "summary": "Send email verification message",
+                "tags": [
+                    "Accounts"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Verification email sent (or already verified)"
+                    },
+                    "429": {
+                        "description": "Too many attempts (rate limited)"
+                    }
+                }
+            }
+        },
+        "/api/accounts/token/refresh/": {
+            "post": {
+                "operationId": "accounts_token_refresh_create",
+                "description": "Exchanges a valid refresh token for a new access token.",
+                "summary": "Refresh access token",
+                "tags": [
+                    "Accounts"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TokenRefresh"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TokenRefresh"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TokenRefresh"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Token refreshed"
+                    },
+                    "401": {
+                        "description": "Refresh token invalid or expired"
+                    }
+                }
+            }
+        },
+        "/api/accounts/verify-email/": {
+            "post": {
+                "operationId": "accounts_verify_email_create",
+                "summary": "Verify email with token",
+                "tags": [
+                    "Accounts"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerifyEmail"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerifyEmail"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerifyEmail"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Email verified successfully"
+                    },
+                    "400": {
+                        "description": "Invalid or expired verification token"
+                    }
+                }
+            }
+        },
+        "/api/accounts/verify-reset-token/": {
+            "post": {
+                "operationId": "accounts_verify_reset_token_create",
+                "summary": "Verify a password-reset token",
+                "tags": [
+                    "Accounts"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerifyResetToken"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerifyResetToken"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerifyResetToken"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Token is valid"
+                    },
+                    "400": {
+                        "description": "Invalid or expired token"
+                    },
+                    "429": {
+                        "description": "Too many attempts (rate limited)"
+                    }
+                }
+            }
+        },
+        "/api/therapist/generate/": {
+            "post": {
+                "operationId": "therapist_generate_create",
+                "description": "\nSend an emoji and your thoughts to Luna (AI Therapist).\nLuna will respond with an empathetic, supportive message.\n\nThe entry is automatically saved to your journal history.\n        ",
+                "summary": "Generate AI response",
+                "tags": [
+                    "Therapist"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "user_id": {
+                                        "type": "string",
+                                        "example": "user_123"
+                                    },
+                                    "emoji": {
+                                        "type": "string",
+                                        "example": "ðŸ˜”"
+                                    },
+                                    "thoughts": {
+                                        "type": "string",
+                                        "example": "I feel overwhelmed lately"
+                                    },
+                                    "history": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "role": {
+                                                    "type": "string",
+                                                    "example": "user"
+                                                },
+                                                "content": {
+                                                    "type": "string",
+                                                    "example": "I feel sad"
+                                                }
+                                            }
+                                        },
+                                        "example": []
+                                    }
+                                },
+                                "required": [
+                                    "user_id",
+                                    "emoji",
+                                    "thoughts"
+                                ]
+                            },
+                            "examples": {
+                                "OverwhelmedExample": {
+                                    "value": {
+                                        "user_id": "user_123",
+                                        "emoji": "ðŸ˜”",
+                                        "thoughts": "I feel very overwhelmed with everything lately",
+                                        "history": []
+                                    },
+                                    "summary": "Overwhelmed example"
+                                },
+                                "HappyExample": {
+                                    "value": {
+                                        "user_id": "user_123",
+                                        "emoji": "ðŸ˜Š",
+                                        "thoughts": "I feel happy and grateful today!",
+                                        "history": []
+                                    },
+                                    "summary": "Happy example"
+                                },
+                                "AnxiousExample": {
+                                    "value": {
+                                        "user_id": "user_123",
+                                        "emoji": "ðŸ˜°",
+                                        "thoughts": "I am anxious about my future career",
+                                        "history": []
+                                    },
+                                    "summary": "Anxious example"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MoodEntry"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Missing user_id, emoji or thoughts"
+                    }
+                }
+            }
+        },
+        "/api/therapist/history/": {
+            "get": {
+                "operationId": "therapist_history_list",
+                "description": "\nReturns all saved mood journal entries for the given user, ordered by most recent first.\n\nEach entry contains:\n- **user_id** â€” the user ID the entry belongs to\n- **emoji** â€” the mood emoji selected by the user\n- **thoughts** â€” what the user shared\n- **ai_response** â€” Luna's empathetic response\n- **created_at** â€” timestamp of the entry\n        ",
+                "summary": "Get mood history",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "user_id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "User ID to filter mood history entries.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "Therapist"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/MoodEntry"
+                                    }
+                                },
+                                "examples": {
+                                    "HistoryResponse": {
+                                        "value": [
+                                            [
+                                                {
+                                                    "id": 1,
+                                                    "user_id": "user_123",
+                                                    "emoji": "ðŸ˜”",
+                                                    "thoughts": "I feel overwhelmed",
+                                                    "ai_response": "It sounds like you are carrying a lot right now...",
+                                                    "created_at": "2026-03-27T12:00:00Z"
+                                                },
+                                                {
+                                                    "id": 2,
+                                                    "user_id": "user_123",
+                                                    "emoji": "ðŸ˜Š",
+                                                    "thoughts": "Feeling grateful today",
+                                                    "ai_response": "That is beautiful! Gratitude is a powerful...",
+                                                    "created_at": "2026-03-26T09:30:00Z"
+                                                }
+                                            ]
+                                        ],
+                                        "summary": "History response"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Missing user_id"
+                    }
+                }
+            }
+        },
+        "/api/therapist/weekly-letter/": {
+            "get": {
+                "operationId": "therapist_weekly_letter_retrieve",
+                "description": "Generates a personal weekly letter from Luna based on recent entries.",
+                "summary": "Get Luna's weekly letter",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "user_id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "User ID to filter weekly letter entries.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "Therapist"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Weekly letter"
+                    },
+                    "400": {
+                        "description": "Missing user_id"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "BlankEnum": {
+                "enum": [
+                    ""
+                ]
+            },
+            "ChangePassword": {
+                "type": "object",
+                "properties": {
+                    "old_password": {
+                        "type": "string",
+                        "writeOnly": true
+                    },
+                    "new_password": {
+                        "type": "string",
+                        "writeOnly": true
+                    },
+                    "new_password_confirm": {
+                        "type": "string",
+                        "writeOnly": true
+                    }
+                },
+                "required": [
+                    "new_password",
+                    "new_password_confirm",
+                    "old_password"
+                ]
+            },
+            "ForgotPassword": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    }
+                },
+                "required": [
+                    "email"
+                ]
+            },
+            "GenderEnum": {
+                "enum": [
+                    "male",
+                    "female",
+                    "other",
+                    "prefer_not_to_say"
+                ],
+                "type": "string",
+                "description": "* `male` - Male\n* `female` - Female\n* `other` - Other\n* `prefer_not_to_say` - Prefer not to say"
+            },
+            "Login": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "password": {
+                        "type": "string",
+                        "writeOnly": true
+                    }
+                },
+                "required": [
+                    "email",
+                    "password"
+                ]
+            },
+            "Logout": {
+                "type": "object",
+                "properties": {
+                    "refresh": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "refresh"
+                ]
+            },
+            "MoodEntry": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "user_id": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{3,128}$",
+                        "maxLength": 128,
+                        "minLength": 3
+                    },
+                    "emoji": {
+                        "type": "string",
+                        "maxLength": 10
+                    },
+                    "thoughts": {
+                        "type": "string"
+                    },
+                    "ai_response": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "ai_response",
+                    "created_at",
+                    "emoji",
+                    "id",
+                    "thoughts",
+                    "user_id"
+                ]
+            },
+            "PatchedUserProfileUpdate": {
+                "type": "object",
+                "properties": {
+                    "full_name": {
+                        "type": "string",
+                        "maxLength": 150
+                    },
+                    "phone_number": {
+                        "type": "string",
+                        "maxLength": 32
+                    },
+                    "bio": {
+                        "type": "string",
+                        "maxLength": 500
+                    },
+                    "date_of_birth": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "gender": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/GenderEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
+                            }
+                        ]
+                    }
+                }
+            },
+            "ProfileImage": {
+                "type": "object",
+                "properties": {
+                    "image": {
+                        "type": "string",
+                        "format": "uri"
+                    }
+                },
+                "required": [
+                    "image"
+                ]
+            },
+            "Register": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "username": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "password": {
+                        "type": "string",
+                        "writeOnly": true
+                    },
+                    "password_confirm": {
+                        "type": "string",
+                        "writeOnly": true
+                    }
+                },
+                "required": [
+                    "email",
+                    "password",
+                    "password_confirm"
+                ]
+            },
+            "ResetPassword": {
+                "type": "object",
+                "properties": {
+                    "token": {
+                        "type": "string"
+                    },
+                    "new_password": {
+                        "type": "string",
+                        "writeOnly": true
+                    },
+                    "new_password_confirm": {
+                        "type": "string",
+                        "writeOnly": true
+                    }
+                },
+                "required": [
+                    "new_password",
+                    "new_password_confirm",
+                    "token"
+                ]
+            },
+            "TokenRefresh": {
+                "type": "object",
+                "properties": {
+                    "access": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "refresh": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "access",
+                    "refresh"
+                ]
+            },
+            "User": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "readOnly": true
+                    },
+                    "username": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "full_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "phone_number": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "bio": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "date_of_birth": {
+                        "type": "string",
+                        "format": "date",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "gender": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/GenderEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "profile_image": {
+                        "type": "string",
+                        "format": "uri",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "is_verified": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "bio",
+                    "created_at",
+                    "date_of_birth",
+                    "email",
+                    "full_name",
+                    "gender",
+                    "id",
+                    "is_verified",
+                    "phone_number",
+                    "profile_image",
+                    "updated_at",
+                    "username"
+                ]
+            },
+            "VerifyEmail": {
+                "type": "object",
+                "properties": {
+                    "token": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "token"
+                ]
+            },
+            "VerifyResetToken": {
+                "type": "object",
+                "properties": {
+                    "token": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "token"
+                ]
+            }
+        },
+        "securitySchemes": {
+            "jwtAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Therapist",
+            "description": "AI mood journal endpoints"
+        },
+        {
+            "name": "Accounts",
+            "description": "Authentication and account management endpoints"
+        }
+    ]
+}

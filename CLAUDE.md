@@ -12,8 +12,10 @@ This is a Django REST Framework application that provides an AI-powered mental h
 
 - **Django Project**: `core/` - Main project configuration
 - **Django App**: `therapist/` - Main application handling mood entries and AI responses
+- **Django App**: `accounts/` - Custom user model, JWT authentication, and account/profile management
 - **Database**: SQLite (default), easily swappable for PostgreSQL/MySQL
 - **AI Service**: Groq API (external REST API) accessed via [therapist/ai_model.py](therapist/ai_model.py)
+- **Auth**: SimpleJWT access/refresh tokens with blacklist-on-logout, via [accounts/](accounts/)
 - **API Docs**: drf-spectacular (Swagger UI at `/api/docs/`, ReDoc at `/api/redoc/`)
 - **Deployment**: Railway-ready with WhiteNoise for static files
 
@@ -63,26 +65,55 @@ This is a Django REST Framework application that provides an AI-powered mental h
    - `MoodEntryCreateSerializer`: write serializer — exposes `user_id`, `emoji`, `thoughts`, and optional `history`
      - `history`: write-only ListField of DictFields (`{"role", "content"}`), defaults to `[]`
 
+5. **Accounts App** ([accounts/](accounts/)) — custom auth and account management, fully independent of `therapist/`
+   - **Model** ([accounts/models.py](accounts/models.py)): `User` (`AUTH_USER_MODEL = "accounts.User"`, extends `AbstractUser`, email is `USERNAME_FIELD`, optional unique `username`, `full_name`, `phone_number`, `bio`, `date_of_birth`, `gender`, `profile_image`, `is_verified`); `PasswordResetToken` and `EmailVerificationToken` (single-use, expiring, FK to `User`)
+   - **Manager** ([accounts/managers.py](accounts/managers.py)): `UserManager.create_user`/`create_superuser`, email-based
+   - **Views** ([accounts/views.py](accounts/views.py)): one `APIView` per endpoint (see Full API Endpoints below); every authenticated view operates on `request.user` only — no endpoint accepts another user's identifier
+   - **Serializers** ([accounts/serializers.py](accounts/serializers.py)): distinct read (`UserSerializer`) vs. write serializers per action (Register/Login/Logout/ChangePassword/ForgotPassword/VerifyResetToken/ResetPassword/VerifyEmail/ProfileUpdate/ProfileImage)
+   - **Validators** ([accounts/validators.py](accounts/validators.py)): password strength (min 8 chars, ≥1 uppercase, ≥1 lowercase, ≥1 number), phone format, profile-image type/size
+   - **Services** ([accounts/services.py](accounts/services.py)): `success_response`/`error_response` envelope helpers; `send_password_reset_email`/`send_verification_email` stubs (log-only — real email delivery is out of scope, see `specs/001-accounts-auth-module/spec.md` Assumptions); password-reset/email-verification token issue/lookup/consume helpers
+   - **Throttling** ([accounts/throttling.py](accounts/throttling.py)): custom per-IP and per-account throttle classes supporting "N per M minutes/hours" windows (DRF's built-in `parse_rate` only supports single-unit rates)
+   - **Response envelope**: every `accounts/` endpoint returns `{"success": bool, "message": str, "data": {...}}` or `{"success": false, "message": str, "errors": {...}}`
+
 ### URL Routing
 
 - **Main URLs** ([core/urls.py](core/urls.py)):
   - `/` → Home page (`templates/index.html`)
   - `/admin/` → Django admin interface
   - `/api/therapist/` → Includes therapist app URLs
+  - `/api/accounts/` → Includes accounts app URLs
   - `/api/schema/` → OpenAPI schema
   - `/api/docs/` → Swagger UI
   - `/api/redoc/` → ReDoc UI
+  - Media files (`MEDIA_URL`/`MEDIA_ROOT`, profile images) served via `static()` when `DEBUG=True`
 
 - **Therapist URLs** ([therapist/urls.py](therapist/urls.py)):
   - `generate/` → `GenerateResponseAPIView` (POST only)
   - `history/` → `AllHistoryAPIView` (GET only)
   - `weekly-letter/` → `WeeklyLetterAPIView` (GET only)
 
+- **Accounts URLs** ([accounts/urls.py](accounts/urls.py)): see Full API Endpoints below
+
 ### Full API Endpoints
 
 - `POST /api/therapist/generate/` — Create mood entry with AI response
 - `GET /api/therapist/history/?user_id=<id>` — Retrieve entries for a user
 - `GET /api/therapist/weekly-letter/?user_id=<id>` — Get Luna's weekly letter
+- `POST /api/accounts/register/` — Register a new account, returns JWT access/refresh tokens
+- `POST /api/accounts/login/` — Sign in with email + password, returns JWT access/refresh tokens
+- `POST /api/accounts/logout/` — Blacklist a refresh token (auth required)
+- `POST /api/accounts/token/refresh/` — Exchange a refresh token for a new access token
+- `GET /api/accounts/me/` — Get the authenticated user's profile (auth required)
+- `PATCH /api/accounts/me/` — Update editable profile fields (auth required)
+- `POST /api/accounts/profile-image/` — Upload profile photo, multipart/form-data (auth required)
+- `DELETE /api/accounts/profile-image/` — Remove profile photo (auth required)
+- `POST /api/accounts/change-password/` — Change password (auth required)
+- `DELETE /api/accounts/delete-account/` — Permanently delete own account (auth required)
+- `POST /api/accounts/forgot-password/` — Request a password-reset token by email
+- `POST /api/accounts/verify-reset-token/` — Check whether a reset token is valid
+- `POST /api/accounts/reset-password/` — Set a new password using a valid reset token
+- `POST /api/accounts/send-verification-email/` — Issue an email-verification token (auth required)
+- `POST /api/accounts/verify-email/` — Confirm email verification with a token (auth required)
 
 ## Development Conventions
 
@@ -109,14 +140,15 @@ This is a Django REST Framework application that provides an AI-powered mental h
 - `gunicorn==25.3.0` — Production WSGI server
 - `whitenoise==6.5.0` — Static file serving for production
 - `certifi==2026.2.25` — SSL certificate bundle
+- `djangorestframework-simplejwt==5.5.1` — JWT issuance/refresh/blacklist for `accounts/`
+- `Pillow==12.2.0` — Required by `ImageField` (profile photo validation/storage)
 
-**Note**: No `torch` or `transformers` — uses external API instead of local model.
+**Note**: No `torch` or `transformers` — uses external API instead of local model. No `python-decouple`/`dotenv` — settings use the existing `os.environ.get(..., default)` pattern.
 
 ### Testing
 
-- Test file: [therapist/tests.py](therapist/tests.py)
-- Run with: `python manage.py test therapist`
-- Always mock `generate_ai_response()` to avoid real API calls
+- Therapist test file: [therapist/tests.py](therapist/tests.py) — run with `python manage.py test therapist`; always mock `generate_ai_response()` to avoid real API calls
+- Accounts test file: [accounts/tests.py](accounts/tests.py) — run with `python manage.py test accounts`; always mock `send_password_reset_email`/`send_verification_email` (in `accounts.views`) to avoid implying real email delivery; throttled-endpoint tests must call `cache.clear()` in `setUp()` since Django's default `LocMemCache` persists across test classes within a run; profile-image tests should use `@override_settings(MEDIA_ROOT=tempfile.mkdtemp())` to avoid writing test uploads into the real `media/` directory
 
 Example:
 ```python
@@ -182,14 +214,15 @@ generate_ai_response(emoji: str, thoughts: str, history: list = None) -> str
 - ✅ `ALLOWED_HOSTS` configured for Railway (`["*", ".railway.app"]`)
 - ✅ `CSRF_TRUSTED_ORIGINS` includes the deployed Railway domain (`https://web-production-f8628.up.railway.app`) — **update this if the Railway app domain changes**
 - ✅ WhiteNoise configured for secure static file serving
-- ✅ `user_id` validated with strict regex on all endpoints
+- ✅ `user_id` validated with strict regex on all endpoints (`therapist/`)
+- ✅ `accounts/` provides JWT authentication (SimpleJWT access=15min/refresh=7days, rotation + blacklist-on-logout) and rate limiting (5/5min register+login, 3/15min forgot-password, 5/15min verify-reset-token, 3/hour send-verification-email)
 - ⚠️ `ALLOWED_HOSTS = ["*"]` allows all hosts — restrict in production
 - ⚠️ No CORS headers — add `django-cors-headers` if frontend on a different domain
-- ⚠️ No authentication — anyone can submit/read entries
+- ⚠️ `therapist/` endpoints remain unauthenticated — `accounts/` does not (yet) gate `therapist/` endpoints behind login; `therapist.MoodEntry.user_id` is still a free-text client-supplied string with no link to `accounts.User` (see `specs/001-accounts-auth-module/research.md` §8 for why a cascade-on-delete was deliberately not implemented)
 
 **Environment Variables Required**:
 - `GROQ_API_KEY` — **Required** for AI functionality
-- `SECRET_KEY` — Optional (has fallback for dev)
+- `SECRET_KEY` — Optional (has fallback for dev; also used to sign JWTs — set a strong value in production)
 - `DEBUG` — Optional (defaults to False)
 
 ### Running Commands
@@ -269,9 +302,23 @@ ai_therapist_backend/
 │   ├── apps.py           # App configuration
 │   ├── tests.py          # Test cases
 │   └── migrations/       # Database migrations
+├── accounts/
+│   ├── models.py         # User (AUTH_USER_MODEL), PasswordResetToken, EmailVerificationToken
+│   ├── managers.py       # UserManager (email-based create_user/create_superuser)
+│   ├── views.py          # One APIView per endpoint (see Full API Endpoints)
+│   ├── serializers.py    # Register/Login/Logout/Profile/Password/Verification serializers
+│   ├── validators.py     # Password strength, phone format, image type/size
+│   ├── services.py       # Response envelope, email-send stubs, token helpers
+│   ├── throttling.py     # Custom per-IP/per-account throttles ("N/Mmin" rate syntax)
+│   ├── urls.py           # App URL patterns
+│   ├── admin.py          # Admin site config
+│   ├── apps.py           # App configuration
+│   ├── tests.py          # Test cases
+│   └── migrations/       # Database migrations
 ├── templates/
 │   └── index.html        # Home page
 ├── staticfiles/          # Collected static files (generated)
+├── media/                # Profile image uploads (gitignored, dev-only local storage)
 ├── .venv/                # Virtual environment
 ├── manage.py
 ├── requirements.txt
@@ -293,11 +340,11 @@ ai_therapist_backend/
 
 ### Easy Additions
 
-1. **Authentication**: Add Django auth or JWT tokens
+1. **Gate `therapist/` behind `accounts/` auth**: switch `therapist` views to `IsAuthenticated` and derive `user_id` from `request.user` instead of a client-supplied field
 2. **Filtering**: Query parameters for date ranges, emoji filters
 3. **Pagination**: DRF pagination classes on history endpoint
-4. **Rate Limiting**: DRF throttling to prevent API abuse
-5. **CORS**: `django-cors-headers` for cross-origin frontend
+4. **CORS**: `django-cors-headers` for cross-origin frontend
+5. **Social auth**: `accounts.User`/registration flow were designed not to preclude adding Google/Apple sign-in later (see `specs/001-accounts-auth-module/spec.md` Assumptions)
 
 ### API Service Improvements
 
@@ -308,12 +355,14 @@ ai_therapist_backend/
 
 ## Known Limitations
 
-1. No authentication — anyone can submit/read entries
+1. `therapist/` endpoints remain unauthenticated — `accounts/` exists alongside it but doesn't (yet) gate mood-journal access
 2. Synchronous Groq API calls — blocks request during generation
 3. SQLite — not suitable for concurrent production writes
-4. No rate limiting — vulnerable to spam/API cost abuse
-5. No input sanitization beyond field presence + regex
+4. No rate limiting on `therapist/` endpoints (only `accounts/` auth-sensitive endpoints are throttled)
+5. No input sanitization beyond field presence + regex (`therapist/`) / serializer validation (`accounts/`)
 6. `ALLOWED_HOSTS = ["*"]` — too permissive for production
+7. `accounts/` email delivery is a no-op stub (`send_password_reset_email`/`send_verification_email` only log) — wire up a real provider before relying on these flows in production
+8. Account deletion does not cascade into `therapist.MoodEntry` — there's no link between the two today (see `specs/001-accounts-auth-module/research.md` §8)
 
 ## Deployment Checklist
 
@@ -321,11 +370,13 @@ ai_therapist_backend/
 - [x] `SECRET_KEY` via environment variable
 - [x] Static files configured with WhiteNoise
 - [x] `user_id` data isolation implemented
+- [x] JWT authentication implemented (`accounts/`, SimpleJWT)
+- [x] Rate limiting on auth-sensitive endpoints (`accounts/`)
 - [ ] **Set `GROQ_API_KEY`** (CRITICAL)
+- [ ] Wire up real email delivery for `accounts/` password-reset and verification flows (currently log-only stubs)
 - [ ] Restrict `ALLOWED_HOSTS` to specific domain
 - [ ] Use PostgreSQL
 - [ ] Add CORS headers if needed
-- [ ] Configure rate limiting (DRF throttling)
 - [ ] Add error logging (Sentry)
 - [ ] Set up monitoring
 
@@ -337,6 +388,9 @@ ai_therapist_backend/
 4. **Database locked**: SQLite concurrency issue — use PostgreSQL
 5. **Import errors**: Activate virtual environment first
 6. **Static files 404**: Run `python manage.py collectstatic`
+7. **401 on `accounts/` endpoints**: access tokens expire after 15 minutes — call `token/refresh/` with the refresh token (valid 7 days) rather than re-logging in
+8. **429 on `accounts/` endpoints**: rate limit hit — see Full API Endpoints' throttle thresholds; `cache.clear()` in tests if writing new throttled-endpoint test cases
+9. **Profile image upload rejected**: must be JPG/JPEG/PNG/WEBP and ≤5 MB (`accounts/validators.py`)
 
 ---
 

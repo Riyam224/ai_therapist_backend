@@ -16,6 +16,8 @@ CSRF_TRUSTED_ORIGINS = [
     "https://web-production-f8628.up.railway.app",
 ]
 
+AUTH_USER_MODEL = "accounts.User"
+
 # -----------------------------------------------------
 # Installed apps
 # -----------------------------------------------------
@@ -27,8 +29,11 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
     "therapist",
+    "accounts",
 ]
 
 # -----------------------------------------------------
@@ -63,6 +68,8 @@ TEMPLATES = [
         },
     },
 ]
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 WSGI_APPLICATION = "core.wsgi.application"
 
@@ -112,7 +119,28 @@ REST_FRAMEWORK = {
         "rest_framework.renderers.BrowsableAPIRenderer",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
 }
+
+# -----------------------------------------------------
+# SimpleJWT
+# -----------------------------------------------------
+from datetime import timedelta  # noqa: E402
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+}
+
+# -----------------------------------------------------
+# Media files (profile images)
+# -----------------------------------------------------
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 
 SPECTACULAR_SETTINGS = {
@@ -140,6 +168,10 @@ to provide empathetic responses to your emotional entries.
         {
             "name": "Therapist",
             "description": "AI mood journal endpoints",
+        },
+        {
+            "name": "Accounts",
+            "description": "Authentication and account management endpoints",
         },
     ],
 }
