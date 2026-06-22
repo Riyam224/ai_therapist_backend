@@ -9,6 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Move to Railway environment variables
 SECRET_KEY = os.environ.get("SECRET_KEY", "fallback-local-dev-key")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+FIREBASE_CREDENTIALS_PATH = os.environ.get("FIREBASE_CREDENTIALS_PATH", "")
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 ALLOWED_HOSTS = ["*", ".railway.app"]
 
@@ -29,8 +30,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    "rest_framework_simplejwt",
-    "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
     "therapist",
     "accounts",
@@ -120,28 +119,9 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "core.firebase_auth.FirebaseAuthentication",
     ],
 }
-
-# -----------------------------------------------------
-# SimpleJWT
-# -----------------------------------------------------
-from datetime import timedelta  # noqa: E402
-
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": True,
-}
-
-# -----------------------------------------------------
-# Media files (profile images)
-# -----------------------------------------------------
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
-
 
 # -----------------------------------------------------
 # Logging

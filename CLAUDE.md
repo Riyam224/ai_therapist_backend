@@ -15,7 +15,7 @@ This is a Django REST Framework application that provides an AI-powered mental h
 - **Django App**: `accounts/` - Custom user model, JWT authentication, and account/profile management
 - **Database**: SQLite (default), easily swappable for PostgreSQL/MySQL
 - **AI Service**: Groq API (external REST API) accessed via [therapist/ai_model.py](therapist/ai_model.py)
-- **Auth**: SimpleJWT access/refresh tokens with blacklist-on-logout, via [accounts/](accounts/)
+- **Auth**: Firebase Authentication — the Flutter client owns sign-in/sign-up/password-reset/email-verification/Google/Apple via Firebase; Django only verifies Firebase ID tokens via [core/firebase_auth.py](core/firebase_auth.py) and resolves them to `request.user`. Django never issues or refreshes tokens itself.
 - **API Docs**: drf-spectacular (Swagger UI at `/api/docs/`, ReDoc at `/api/redoc/`)
 - **Deployment**: Railway-ready with WhiteNoise for static files
 
@@ -24,26 +24,24 @@ This is a Django REST Framework application that provides an AI-powered mental h
 1. **Model Layer** ([therapist/models.py](therapist/models.py))
    - `MoodEntry`: Stores user mood data
      - Fields: `user_id` (CharField, db_index), `emoji`, `thoughts`, `ai_response`, `created_at`
-     - `user_id` scopes all entries to a specific user — all queries must filter by it
+     - `user_id` scopes all entries to a specific user — always `str(request.user.id)`, set server-side; never accepted from the client (no schema change — the column is reused, see [accounts](#) auth migration)
      - Uses auto-generated timestamps (`auto_now_add=True`)
      - String representation: `"{user_id} | {emoji} - {thoughts[:20]}"`
      - Meta: `verbose_name` and `verbose_name_plural` configured
 
 2. **View Layer** ([therapist/views.py](therapist/views.py))
-   - Uses **class-based APIView** (DRF)
+   - Uses **class-based APIView** (DRF), all three require `permission_classes = [IsAuthenticated]` (authenticated via `core.firebase_auth.FirebaseAuthentication`)
    - `GenerateResponseAPIView`: POST-only endpoint
-     - Validates input with `MoodEntryCreateSerializer` (user_id, emoji, thoughts required; history optional)
+     - Validates input with `MoodEntryCreateSerializer` (`emoji`, `thoughts` required; `history` optional — `user_id` is NOT accepted from the client)
      - Extracts last 10 items from `history` to cap context window
      - Calls `generate_ai_response(emoji, thoughts, history)` from ai_model
      - On AI error: catches exception, saves fallback message, still returns 200
-     - Creates `MoodEntry` and returns serialized data (200)
+     - Creates `MoodEntry` with `user_id=str(request.user.id)` and returns serialized data (200)
      - Luna may include `[SESSION_END]` tag in `ai_response` when the user feels resolved
    - `AllHistoryAPIView`: GET-only endpoint
-     - Requires `user_id` query param — returns 400 if missing
-     - Returns entries filtered by `user_id`, ordered by `created_at` DESC
+     - Returns entries filtered by `str(request.user.id)`, ordered by `created_at` DESC
    - `WeeklyLetterAPIView`: GET-only endpoint
-     - Requires `user_id` query param
-     - Fetches last 7 days of entries for that user
+     - Fetches last 7 days of entries for `str(request.user.id)`
      - Returns `{"letter": null, "reason": "not_enough_entries"}` if fewer than 2 entries
      - Calls Groq API directly to generate a personal weekly letter from Luna
      - Returns letter text + stats (entry_count, dominant_emoji, streak, week_start, week_end)
@@ -60,20 +58,25 @@ This is a Django REST Framework application that provides an AI-powered mental h
    - Does not handle exceptions — caller is responsible
 
 4. **Serializers** ([therapist/serializers.py](therapist/serializers.py))
-   - `USER_ID_VALIDATOR`: regex `^[A-Za-z0-9_-]{3,128}$` — used on both serializers
-   - `MoodEntrySerializer`: full read serializer — `fields = "__all__"`, `ai_response`/`created_at`/`id` read-only
-   - `MoodEntryCreateSerializer`: write serializer — exposes `user_id`, `emoji`, `thoughts`, and optional `history`
+   - `MoodEntrySerializer`: full read serializer — `fields = "__all__"`, `user_id`/`ai_response`/`created_at`/`id` read-only
+   - `MoodEntryCreateSerializer`: write serializer — exposes only `emoji`, `thoughts`, and optional `history` (`user_id` is not client-writable)
      - `history`: write-only ListField of DictFields (`{"role", "content"}`), defaults to `[]`
 
-5. **Accounts App** ([accounts/](accounts/)) — custom auth and account management, fully independent of `therapist/`
-   - **Model** ([accounts/models.py](accounts/models.py)): `User` (`AUTH_USER_MODEL = "accounts.User"`, extends `AbstractUser`, email is `USERNAME_FIELD`, optional unique `username`, `full_name`, `phone_number`, `bio`, `date_of_birth`, `gender`, `profile_image`, `is_verified`); `PasswordResetToken` and `EmailVerificationToken` (single-use, expiring, FK to `User`)
-   - **Manager** ([accounts/managers.py](accounts/managers.py)): `UserManager.create_user`/`create_superuser`, email-based
-   - **Views** ([accounts/views.py](accounts/views.py)): one `APIView` per endpoint (see Full API Endpoints below); every authenticated view operates on `request.user` only — no endpoint accepts another user's identifier
-   - **Serializers** ([accounts/serializers.py](accounts/serializers.py)): distinct read (`UserSerializer`) vs. write serializers per action (Register/Login/Logout/ChangePassword/ForgotPassword/VerifyResetToken/ResetPassword/VerifyEmail/ProfileUpdate/ProfileImage)
-   - **Validators** ([accounts/validators.py](accounts/validators.py)): password strength (min 8 chars, ≥1 uppercase, ≥1 lowercase, ≥1 number), phone format, profile-image type/size
-   - **Services** ([accounts/services.py](accounts/services.py)): `success_response`/`error_response` envelope helpers; `send_password_reset_email`/`send_verification_email` stubs (log-only — real email delivery is out of scope, see `specs/001-accounts-auth-module/spec.md` Assumptions); password-reset/email-verification token issue/lookup/consume helpers
-   - **Throttling** ([accounts/throttling.py](accounts/throttling.py)): custom per-IP and per-account throttle classes supporting "N per M minutes/hours" windows (DRF's built-in `parse_rate` only supports single-unit rates)
-   - **Response envelope**: every `accounts/` endpoint returns `{"success": bool, "message": str, "data": {...}}` or `{"success": false, "message": str, "errors": {...}}`
+5. **Firebase Authentication** ([core/firebase_auth.py](core/firebase_auth.py))
+   - `FirebaseAuthentication(BaseAuthentication)` — DRF authentication backend, set as the sole entry in `REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"]`
+   - Reads `Authorization: Bearer <firebase-id-token>`; missing/empty → unauthenticated (401 via `IsAuthenticated`); calls `firebase_admin.auth.verify_id_token(token)` — any exception (invalid signature, expired, wrong audience) → `AuthenticationFailed` (401)
+   - Resolves the verified `uid` to an `accounts.User` via `get_or_create(firebase_uid=uid, ...)`, auto-creating on first sight; if Firebase provides no email (phone/anonymous sign-in) a synthetic `f"{uid}@firebase.local"` is used to satisfy `User.email`'s uniqueness constraint
+   - `firebase_admin.initialize_app(...)` is guarded by `if not firebase_admin._apps` and only runs when `FIREBASE_CREDENTIALS_PATH` is set, so `manage.py check`/`makemigrations`/non-auth tests work without real credentials (e.g. CI)
+   - Registers a `drf_spectacular` `OpenApiAuthenticationExtension` so the OpenAPI schema documents the Bearer scheme correctly
+
+6. **Accounts App** ([accounts/](accounts/)) — account/profile management only; Firebase owns all credential/identity flows
+   - **Model** ([accounts/models.py](accounts/models.py)): `User` (`AUTH_USER_MODEL = "accounts.User"`, extends `AbstractUser`, email is `USERNAME_FIELD`, optional unique `username`, nullable unique indexed `firebase_uid`, `full_name`, `phone_number`, `bio`, `date_of_birth`, `gender`, `is_verified`). No `PasswordResetToken`/`EmailVerificationToken`/`profile_image` — removed in the Firebase migration.
+   - **Manager** ([accounts/managers.py](accounts/managers.py)): `UserManager.create_user`/`create_superuser`, email-based (still used by `createsuperuser` for admin access; regular users are created via `FirebaseAuthentication`'s `get_or_create`)
+   - **Views** ([accounts/views.py](accounts/views.py)): only `MeView` (GET/PATCH `/me/`) and `DeleteAccountView` (DELETE `/delete-account/`); every view operates on `request.user` only — no endpoint accepts another user's identifier. `DeleteAccountView` calls `firebase_admin.auth.delete_user(firebase_uid)` first; on failure it logs and returns `502` **without** deleting the local row (no orphaned Firebase identity)
+   - **Serializers** ([accounts/serializers.py](accounts/serializers.py)): `UserSerializer` (read-only, full profile) and `UserProfileUpdateSerializer` (`full_name`, `phone_number`, `bio`, `date_of_birth`, `gender` only — `firebase_uid`/`email`/`username`/staff fields are never in `Meta.fields`, so extra payload keys are silently ignored)
+   - **Validators** ([accounts/validators.py](accounts/validators.py)): phone format only (password-strength and profile-image validators removed)
+   - **Services** ([accounts/services.py](accounts/services.py)): `success_response`/`error_response` envelope helpers only
+   - **Response envelope**: every `accounts/` endpoint returns `{"success": bool, "message": str, "data": {...}}` or `{"success": false, "message": str, "errors": {...}}` — except auth failures, which return DRF's default `{"detail": "..."}` 401 shape (auth runs before any view code)
 
 ### URL Routing
 
@@ -85,35 +88,26 @@ This is a Django REST Framework application that provides an AI-powered mental h
   - `/api/schema/` → OpenAPI schema
   - `/api/docs/` → Swagger UI
   - `/api/redoc/` → ReDoc UI
-  - Media files (`MEDIA_URL`/`MEDIA_ROOT`, profile images) served via `static()` when `DEBUG=True`
 
 - **Therapist URLs** ([therapist/urls.py](therapist/urls.py)):
-  - `generate/` → `GenerateResponseAPIView` (POST only)
-  - `history/` → `AllHistoryAPIView` (GET only)
-  - `weekly-letter/` → `WeeklyLetterAPIView` (GET only)
+  - `generate/` → `GenerateResponseAPIView` (POST only, auth required)
+  - `history/` → `AllHistoryAPIView` (GET only, auth required)
+  - `weekly-letter/` → `WeeklyLetterAPIView` (GET only, auth required)
 
 - **Accounts URLs** ([accounts/urls.py](accounts/urls.py)): see Full API Endpoints below
 
 ### Full API Endpoints
 
-- `POST /api/therapist/generate/` — Create mood entry with AI response
-- `GET /api/therapist/history/?user_id=<id>` — Retrieve entries for a user
-- `GET /api/therapist/weekly-letter/?user_id=<id>` — Get Luna's weekly letter
-- `POST /api/accounts/register/` — Register a new account, returns JWT access/refresh tokens
-- `POST /api/accounts/login/` — Sign in with email + password, returns JWT access/refresh tokens
-- `POST /api/accounts/logout/` — Blacklist a refresh token (auth required)
-- `POST /api/accounts/token/refresh/` — Exchange a refresh token for a new access token
-- `GET /api/accounts/me/` — Get the authenticated user's profile (auth required)
-- `PATCH /api/accounts/me/` — Update editable profile fields (auth required)
-- `POST /api/accounts/profile-image/` — Upload profile photo, multipart/form-data (auth required)
-- `DELETE /api/accounts/profile-image/` — Remove profile photo (auth required)
-- `POST /api/accounts/change-password/` — Change password (auth required)
-- `DELETE /api/accounts/delete-account/` — Permanently delete own account (auth required)
-- `POST /api/accounts/forgot-password/` — Request a password-reset token by email
-- `POST /api/accounts/verify-reset-token/` — Check whether a reset token is valid
-- `POST /api/accounts/reset-password/` — Set a new password using a valid reset token
-- `POST /api/accounts/send-verification-email/` — Issue an email-verification token (auth required)
-- `POST /api/accounts/verify-email/` — Confirm email verification with a token (auth required)
+All endpoints below (except none — every endpoint now requires auth) require `Authorization: Bearer <firebase-id-token>`. Missing/invalid/expired token → `401 Unauthorized`.
+
+- `POST /api/therapist/generate/` — Create mood entry with AI response, scoped to `request.user`
+- `GET /api/therapist/history/` — Retrieve entries for the authenticated user
+- `GET /api/therapist/weekly-letter/` — Get Luna's weekly letter for the authenticated user
+- `GET /api/accounts/me/` — Get the authenticated user's profile
+- `PATCH /api/accounts/me/` — Update editable profile fields (`full_name`, `phone_number`, `bio`, `date_of_birth`, `gender` only)
+- `DELETE /api/accounts/delete-account/` — Delete the user's Firebase identity and local account permanently
+
+Registration, login, logout, token refresh, password reset, email verification, and profile-image upload are no longer Django endpoints — they're handled entirely by Firebase Auth (and Firebase Storage for photos) on the Flutter client.
 
 ## Development Conventions
 
@@ -140,33 +134,37 @@ This is a Django REST Framework application that provides an AI-powered mental h
 - `gunicorn==25.3.0` — Production WSGI server
 - `whitenoise==6.5.0` — Static file serving for production
 - `certifi==2026.2.25` — SSL certificate bundle
-- `djangorestframework-simplejwt==5.5.1` — JWT issuance/refresh/blacklist for `accounts/`
-- `Pillow==12.2.0` — Required by `ImageField` (profile photo validation/storage)
+- `firebase-admin>=6.5,<7` — verifies Firebase ID tokens, deletes Firebase users server-side
 
-**Note**: No `torch` or `transformers` — uses external API instead of local model. No `python-decouple`/`dotenv` — settings use the existing `os.environ.get(..., default)` pattern.
+**Note**: No `torch` or `transformers` — uses external API instead of local model. No `python-decouple`/`dotenv` — settings use the existing `os.environ.get(..., default)` pattern. No `Pillow` — profile photos are now stored in Firebase Storage by the client, not Django.
 
 ### Testing
 
-- Therapist test file: [therapist/tests.py](therapist/tests.py) — run with `python manage.py test therapist`; always mock `generate_ai_response()` to avoid real API calls
-- Accounts test file: [accounts/tests.py](accounts/tests.py) — run with `python manage.py test accounts`; always mock `send_password_reset_email`/`send_verification_email` (in `accounts.views`) to avoid implying real email delivery; throttled-endpoint tests must call `cache.clear()` in `setUp()` since Django's default `LocMemCache` persists across test classes within a run; profile-image tests should use `@override_settings(MEDIA_ROOT=tempfile.mkdtemp())` to avoid writing test uploads into the real `media/` directory
+- Therapist test file: [therapist/tests.py](therapist/tests.py) — run with `python manage.py test therapist`; mock `generate_ai_response()` to avoid real Groq calls and `core.firebase_auth.auth.verify_id_token` to avoid real Firebase calls
+- Accounts test file: [accounts/tests.py](accounts/tests.py) — run with `python manage.py test accounts`; mock `core.firebase_auth.auth.verify_id_token` for every authenticated request and `accounts.views.firebase_auth_admin.delete_user` for delete-account tests — no real Firebase project needed
 
 Example:
 ```python
+from unittest.mock import patch
 from django.test import TestCase
 from rest_framework.test import APIClient
-from unittest.mock import patch
 
 class TherapistAPITests(TestCase):
     def setUp(self):
         self.client = APIClient()
+        patcher = patch("core.firebase_auth.auth.verify_id_token")
+        self.mock_verify = patcher.start()
+        self.addCleanup(patcher.stop)
+        self.mock_verify.return_value = {"uid": "test-uid", "email": "t@example.com"}
 
-    @patch('therapist.ai_model.generate_ai_response')
+    @patch('therapist.views.generate_ai_response')
     def test_create_mood_entry(self, mock_generate):
         mock_generate.return_value = "Mocked AI response"
         response = self.client.post(
             '/api/therapist/generate/',
-            {'user_id': 'user_test', 'emoji': '😊', 'thoughts': 'Great day!'},
-            format='json'
+            {'emoji': '😊', 'thoughts': 'Great day!'},
+            format='json',
+            HTTP_AUTHORIZATION="Bearer faketoken",
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn('ai_response', response.data)
@@ -214,15 +212,17 @@ generate_ai_response(emoji: str, thoughts: str, history: list = None) -> str
 - ✅ `ALLOWED_HOSTS` configured for Railway (`["*", ".railway.app"]`)
 - ✅ `CSRF_TRUSTED_ORIGINS` includes the deployed Railway domain (`https://web-production-f8628.up.railway.app`) — **update this if the Railway app domain changes**
 - ✅ WhiteNoise configured for secure static file serving
-- ✅ `user_id` validated with strict regex on all endpoints (`therapist/`)
-- ✅ `accounts/` provides JWT authentication (SimpleJWT access=15min/refresh=7days, rotation + blacklist-on-logout) and rate limiting (5/5min register+login, 3/15min forgot-password, 5/15min verify-reset-token, 3/hour send-verification-email)
+- ✅ Identity comes exclusively from a verified Firebase ID token (`request.user`, set by `core.firebase_auth.FirebaseAuthentication`) — no endpoint accepts a client-supplied user identifier from the request body or query parameters
+- ✅ `therapist/` (`generate`, `history`, `weekly-letter`) and `accounts/` (`me/`, `delete-account/`) all require authentication and are scoped to `request.user`
 - ⚠️ `ALLOWED_HOSTS = ["*"]` allows all hosts — restrict in production
 - ⚠️ No CORS headers — add `django-cors-headers` if frontend on a different domain
-- ⚠️ `therapist/` endpoints remain unauthenticated — `accounts/` does not (yet) gate `therapist/` endpoints behind login; `therapist.MoodEntry.user_id` is still a free-text client-supplied string with no link to `accounts.User` (see `specs/001-accounts-auth-module/research.md` §8 for why a cascade-on-delete was deliberately not implemented)
+- ⚠️ No Django-side rate limiting remains (the only previously-throttled endpoints — register/login/forgot-password/etc. — were removed; Firebase enforces its own abuse protection on those flows)
+- ⚠️ `MoodEntry` rows created before this migration (under the old client-supplied `user_id` scheme) are permanently inaccessible through the now-authenticated endpoints — accepted, documented tradeoff, not a bug (see `specs/002-migrate-authentication-simplejwt/spec.md` Edge Cases)
 
 **Environment Variables Required**:
 - `GROQ_API_KEY` — **Required** for AI functionality
-- `SECRET_KEY` — Optional (has fallback for dev; also used to sign JWTs — set a strong value in production)
+- `FIREBASE_CREDENTIALS_PATH` — **Required** for Firebase token verification (path to a service-account JSON); without it, authenticated requests fail at first use, but `manage.py check`/`makemigrations`/non-auth tests still run
+- `SECRET_KEY` — Optional (has fallback for dev; used by Django's session/CSRF signing — set a strong value in production)
 - `DEBUG` — Optional (defaults to False)
 
 ### Running Commands
@@ -247,41 +247,40 @@ gunicorn core.wsgi:application --bind 0.0.0.0:$PORT
 
 ### POST Request Flow (Generate Endpoint)
 
-1. Request received at `POST /api/therapist/generate/`
-2. Input validated by `MoodEntryCreateSerializer` — 400 if invalid
+1. Request received at `POST /api/therapist/generate/` — `FirebaseAuthentication` verifies the Bearer token; 401 if missing/invalid/expired
+2. Input validated by `MoodEntryCreateSerializer` (`emoji`, `thoughts`, optional `history`) — 400 if invalid
 3. `history` extracted from validated data (last 10 items kept to cap context)
 4. `generate_ai_response(emoji, thoughts, history)` called; exception caught → fallback message used
 5. `ai_response` may contain `[SESSION_END]` tag — clients should detect this and close the session
-6. `MoodEntry` created with user_id, emoji, thoughts, ai_response
+6. `MoodEntry` created with `user_id=str(request.user.id)`, emoji, thoughts, ai_response
 7. Serialized response returned (200)
 
 ### GET Request Flow (History Endpoint)
 
-1. Request received at `GET /api/therapist/history/?user_id=...`
-2. `user_id` extracted from query params — 400 if missing
-3. `MoodEntry.objects.filter(user_id=user_id).order_by("-created_at")`
-4. All matching entries serialized and returned
+1. Request received at `GET /api/therapist/history/` — 401 if unauthenticated
+2. `MoodEntry.objects.filter(user_id=str(request.user.id)).order_by("-created_at")`
+3. All matching entries serialized and returned
 
 ### GET Request Flow (Weekly Letter Endpoint)
 
-1. Request received at `GET /api/therapist/weekly-letter/?user_id=...`
-2. `user_id` extracted — 400 if missing
-3. Entries from last 7 days fetched for that user
-4. If < 2 entries: `{"letter": null, "reason": "not_enough_entries"}` (200)
-5. Entries formatted, dominant emoji found
-6. Groq API called to generate personal letter from Luna (timeout: 10s)
-7. Returns `{"letter": "...", "stats": {...}}` (200)
+1. Request received at `GET /api/therapist/weekly-letter/` — 401 if unauthenticated
+2. Entries from last 7 days fetched for `str(request.user.id)`
+3. If < 2 entries: `{"letter": null, "reason": "not_enough_entries"}` (200)
+4. Entries formatted, dominant emoji found
+5. Groq API called to generate personal letter from Luna (timeout: 10s)
+6. Returns `{"letter": "...", "stats": {...}}` (200)
 
 ### Error Handling
 
+- **401**: Missing/invalid/expired Firebase ID token, on every protected endpoint
 - **400**: Invalid/missing required fields
 - **200 with fallback**: Groq API error in generate/ (entry still saved)
 - **200 with letter: null**: Groq API error in weekly-letter/
-- No rate limiting currently implemented
+- **502**: Firebase-side failure deleting a user during `DELETE /api/accounts/delete-account/`
 
 ## Data Isolation
 
-All `MoodEntry` queries are scoped to `user_id`. Users cannot see each other's entries. The `user_id` field is indexed (`db_index=True`) for query performance.
+All `MoodEntry` queries are scoped to `user_id`, which is always `str(request.user.id)` — never accepted from the client. Users cannot see each other's entries. The `user_id` field is indexed (`db_index=True`) for query performance.
 
 ## File Organization
 
@@ -290,12 +289,13 @@ ai_therapist_backend/
 ├── core/
 │   ├── settings.py       # All Django settings (env-var driven, Railway-ready)
 │   ├── urls.py           # Root URL configuration
+│   ├── firebase_auth.py  # FirebaseAuthentication DRF backend + OpenAPI scheme
 │   ├── wsgi.py           # WSGI entry point (Gunicorn)
 │   └── asgi.py           # ASGI entry point
 ├── therapist/
 │   ├── models.py         # MoodEntry model
-│   ├── views.py          # GenerateResponseAPIView, AllHistoryAPIView, WeeklyLetterAPIView
-│   ├── serializers.py    # MoodEntrySerializer, MoodEntryCreateSerializer
+│   ├── views.py          # GenerateResponseAPIView, AllHistoryAPIView, WeeklyLetterAPIView (all IsAuthenticated)
+│   ├── serializers.py    # MoodEntrySerializer, MoodEntryCreateSerializer (no user_id field)
 │   ├── ai_model.py       # Groq API integration
 │   ├── urls.py           # App URL patterns
 │   ├── admin.py          # Admin site config
@@ -303,14 +303,13 @@ ai_therapist_backend/
 │   ├── tests.py          # Test cases
 │   └── migrations/       # Database migrations
 ├── accounts/
-│   ├── models.py         # User (AUTH_USER_MODEL), PasswordResetToken, EmailVerificationToken
+│   ├── models.py         # User (AUTH_USER_MODEL, has firebase_uid)
 │   ├── managers.py       # UserManager (email-based create_user/create_superuser)
-│   ├── views.py          # One APIView per endpoint (see Full API Endpoints)
-│   ├── serializers.py    # Register/Login/Logout/Profile/Password/Verification serializers
-│   ├── validators.py     # Password strength, phone format, image type/size
-│   ├── services.py       # Response envelope, email-send stubs, token helpers
-│   ├── throttling.py     # Custom per-IP/per-account throttles ("N/Mmin" rate syntax)
-│   ├── urls.py           # App URL patterns
+│   ├── views.py          # MeView, DeleteAccountView only
+│   ├── serializers.py    # UserSerializer, UserProfileUpdateSerializer
+│   ├── validators.py     # Phone format only
+│   ├── services.py       # Response envelope helpers only
+│   ├── urls.py           # App URL patterns (me/, delete-account/)
 │   ├── admin.py          # Admin site config
 │   ├── apps.py           # App configuration
 │   ├── tests.py          # Test cases
@@ -318,7 +317,6 @@ ai_therapist_backend/
 ├── templates/
 │   └── index.html        # Home page
 ├── staticfiles/          # Collected static files (generated)
-├── media/                # Profile image uploads (gitignored, dev-only local storage)
 ├── .venv/                # Virtual environment
 ├── manage.py
 ├── requirements.txt
@@ -340,11 +338,11 @@ ai_therapist_backend/
 
 ### Easy Additions
 
-1. **Gate `therapist/` behind `accounts/` auth**: switch `therapist` views to `IsAuthenticated` and derive `user_id` from `request.user` instead of a client-supplied field
-2. **Filtering**: Query parameters for date ranges, emoji filters
-3. **Pagination**: DRF pagination classes on history endpoint
-4. **CORS**: `django-cors-headers` for cross-origin frontend
-5. **Social auth**: `accounts.User`/registration flow were designed not to preclude adding Google/Apple sign-in later (see `specs/001-accounts-auth-module/spec.md` Assumptions)
+1. **Filtering**: Query parameters for date ranges, emoji filters on `history/`
+2. **Pagination**: DRF pagination classes on history endpoint
+3. **CORS**: `django-cors-headers` for cross-origin frontend
+4. **Sync `is_verified`**: Firebase's decoded-token `email_verified` claim could be synced into `accounts.User.is_verified` in `core/firebase_auth.py`'s `get_or_create`/update path if a future feature needs it
+5. **Legacy account linking**: a one-time admin/data-migration to associate pre-Firebase `accounts.User` rows (`firebase_uid IS NULL`) with their Firebase UID, if needed
 
 ### API Service Improvements
 
@@ -355,25 +353,24 @@ ai_therapist_backend/
 
 ## Known Limitations
 
-1. `therapist/` endpoints remain unauthenticated — `accounts/` exists alongside it but doesn't (yet) gate mood-journal access
-2. Synchronous Groq API calls — blocks request during generation
-3. SQLite — not suitable for concurrent production writes
-4. No rate limiting on `therapist/` endpoints (only `accounts/` auth-sensitive endpoints are throttled)
-5. No input sanitization beyond field presence + regex (`therapist/`) / serializer validation (`accounts/`)
-6. `ALLOWED_HOSTS = ["*"]` — too permissive for production
-7. `accounts/` email delivery is a no-op stub (`send_password_reset_email`/`send_verification_email` only log) — wire up a real provider before relying on these flows in production
-8. Account deletion does not cascade into `therapist.MoodEntry` — there's no link between the two today (see `specs/001-accounts-auth-module/research.md` §8)
+1. Synchronous Groq API calls — blocks request during generation
+2. SQLite — not suitable for concurrent production writes
+3. No Django-side rate limiting remains anywhere (Firebase enforces its own abuse protection on sign-in/sign-up flows; `therapist/` was never throttled)
+4. No input sanitization beyond serializer validation
+5. `ALLOWED_HOSTS = ["*"]` — too permissive for production
+6. `MoodEntry` rows created before the Firebase migration (under the old client-supplied `user_id` scheme) are permanently inaccessible — not linked to any `accounts.User`; documented tradeoff, not a bug
+7. Pre-Firebase `accounts.User` rows (created back when SimpleJWT existed) have `firebase_uid = NULL` and are not automatically linked to a Firebase identity — out of scope for this migration
+8. Account deletion does not cascade into `therapist.MoodEntry` — there's no FK link between the two today
 
 ## Deployment Checklist
 
 - [x] `DEBUG = False` in production (via env var)
 - [x] `SECRET_KEY` via environment variable
 - [x] Static files configured with WhiteNoise
-- [x] `user_id` data isolation implemented
-- [x] JWT authentication implemented (`accounts/`, SimpleJWT)
-- [x] Rate limiting on auth-sensitive endpoints (`accounts/`)
+- [x] `user_id` data isolation implemented (derived from authenticated `request.user`, not client input)
+- [x] Firebase authentication implemented (`core/firebase_auth.py`)
 - [ ] **Set `GROQ_API_KEY`** (CRITICAL)
-- [ ] Wire up real email delivery for `accounts/` password-reset and verification flows (currently log-only stubs)
+- [ ] **Set `FIREBASE_CREDENTIALS_PATH`** (CRITICAL — points at a Firebase service-account JSON)
 - [ ] Restrict `ALLOWED_HOSTS` to specific domain
 - [ ] Use PostgreSQL
 - [ ] Add CORS headers if needed
@@ -388,20 +385,20 @@ ai_therapist_backend/
 4. **Database locked**: SQLite concurrency issue — use PostgreSQL
 5. **Import errors**: Activate virtual environment first
 6. **Static files 404**: Run `python manage.py collectstatic`
-7. **401 on `accounts/` endpoints**: access tokens expire after 15 minutes — call `token/refresh/` with the refresh token (valid 7 days) rather than re-logging in
-8. **429 on `accounts/` endpoints**: rate limit hit — see Full API Endpoints' throttle thresholds; `cache.clear()` in tests if writing new throttled-endpoint test cases
-9. **Profile image upload rejected**: must be JPG/JPEG/PNG/WEBP and ≤5 MB (`accounts/validators.py`)
+7. **401 on any endpoint**: missing/invalid/expired Firebase ID token, or `FIREBASE_CREDENTIALS_PATH` not set/pointing at a valid service-account file — check server logs for "Firebase token verification failed"
+8. **`manage.py check`/tests fail with a Firebase credentials error**: shouldn't happen — `core/firebase_auth.py` guards `initialize_app` behind `FIREBASE_CREDENTIALS_PATH` being set, and tests mock `core.firebase_auth.auth.verify_id_token` directly
 
 ---
 
-**Last Updated**: 2026-06-19
+**Last Updated**: 2026-06-22
 **Django Version**: 5.1.4
 **Python Version**: 3.11.9 (pinned via [runtime.txt](runtime.txt))
 **AI Provider**: Groq API (Llama 3.1 8B Instant)
+**Auth Provider**: Firebase Authentication (`firebase-admin` server SDK)
 **Deployed**: Railway (no `railway.json`/`railway.toml` — platform auto-detects via [Procfile](Procfile) + [runtime.txt](runtime.txt))
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/001-accounts-auth-module/plan.md`
+`specs/002-migrate-authentication-simplejwt/plan.md`
 <!-- SPECKIT END -->
