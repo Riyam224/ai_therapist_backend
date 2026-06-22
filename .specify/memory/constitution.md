@@ -1,23 +1,42 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 1.1.0
+- Version change: 1.1.0 → 2.0.0
 - Modified principles:
-  - I. Data Isolation & Privacy — generalized beyond `MoodEntry`/`user_id` to
-    require `request.user`-scoping for any authenticated app (e.g. `accounts/`)
-  - II. Input & Contract Validation — examples generalized to reference both
-    `therapist` and `accounts` serializers, not just `therapist`'s
-  - IV. Test Coverage for Critical Flows — generalized from
-    "`therapist/tests.py`"/"`python manage.py test therapist`" to apply to
-    any app's test suite, and from mocking only `generate_ai_response()` to
-    mocking any external/stubbed call (e.g. `accounts`'s email-send stubs)
-- Added sections: none (Security & Deployment Requirements expanded in place)
-- Removed sections: none
+  - I. Data Isolation & Privacy — redefined: isolation is no longer enforced
+    via a regex-validated, client-supplied `user_id`/identifier on any
+    endpoint. Every endpoint (across `therapist/` and `accounts/`) MUST now
+    derive identity exclusively from `request.user`, set by verified
+    Firebase ID token authentication. Accepting a client-supplied identifier
+    for lookup/isolation purposes is now itself a violation, not an
+    allowed-but-discouraged pattern.
+  - IV. Test Coverage for Critical Flows — mocking targets updated: the
+    `accounts/` email-send stubs no longer exist; tests MUST instead mock
+    `core.firebase_auth.auth.verify_id_token` / `firebase_admin.auth.delete_user`
+    for any authenticated-flow test, alongside `generate_ai_response()`.
+- Security & Deployment Requirements — substantially redefined (backward
+  incompatible, hence MAJOR bump):
+  - Removed: SimpleJWT-specific bullet (access/refresh token lifetimes,
+    rotation, blacklist-on-logout) — Django no longer issues tokens.
+  - Removed: password-strength-policy bullet — Django no longer accepts or
+    sets passwords; Firebase owns credential policy.
+  - Removed: per-account/per-IP rate-limiting-on-auth-endpoints bullet —
+    those endpoints no longer exist in Django; Firebase enforces its own
+    abuse protection.
+  - Removed: "validate client-supplied identifiers with regex" bullet —
+    superseded by Principle I's redefinition (no client-supplied identifiers
+    are accepted at all).
+  - Added: identity MUST come exclusively from a verified Firebase ID token
+    via `core/firebase_auth.py`; `FIREBASE_CREDENTIALS_PATH` handling and
+    fail-closed behavior requirements.
+- Added sections: none structurally (Security & Deployment Requirements
+  rewritten in place)
+- Removed sections: none structurally
 - Templates requiring updates:
   - ✅ .specify/templates/plan-template.md (generic "[Gates determined based on constitution file]" — no change needed, gate check reads this file directly)
   - ✅ .specify/templates/spec-template.md (no constitution references found)
   - ✅ .specify/templates/tasks-template.md (no constitution references found)
   - ✅ .specify/templates/checklist-template.md (no constitution references found)
-  - ✅ CLAUDE.md (already documents `accounts/`'s JWT lifetimes, password policy, and throttling — consistent with the new Security & Deployment Requirements bullets added below)
+  - ✅ CLAUDE.md (already updated for the Firebase migration — documents `core/firebase_auth.py`, removed SimpleJWT/password/throttling sections, consistent with this amendment)
 - Follow-up TODOs: none
 -->
 
@@ -27,20 +46,21 @@ Sync Impact Report
 
 ### I. Data Isolation & Privacy (NON-NEGOTIABLE)
 
-Every `MoodEntry` query MUST be scoped by `user_id`; no endpoint may return or
-aggregate data across users. `user_id` MUST be validated against the strict
-regex (`^[A-Za-z0-9_-]{3,128}$`) on every serializer that accepts it. New
-endpoints that read or write mood/conversation data MUST filter by `user_id`
-before any other condition is applied. For any app with authenticated users
-(e.g. `accounts/`), every endpoint MUST scope reads and writes to
-`request.user` — no endpoint may accept a client-supplied identifier to look
-up or modify another account's data.
+Every endpoint that reads or writes mood/conversation or account data MUST
+scope that operation to `request.user`, where `request.user` is set
+exclusively by a verified Firebase ID token (`core/firebase_auth.py`). No
+endpoint may accept a client-supplied identifier (request body field or
+query parameter) for the purpose of looking up, filtering, or modifying
+data — `therapist.MoodEntry.user_id` MUST always be populated from
+`str(request.user.id)` server-side, never from client input. No endpoint may
+return or aggregate data across users.
 **Rationale**: This is a mental health application handling sensitive
 personal disclosures. A single cross-user data leak is a trust-ending and
-potentially harmful incident, not a recoverable bug. The same standard
-applies whether isolation is enforced via a validated `user_id` field or via
-authentication identity — the failure mode (one user seeing another's data)
-is identical.
+potentially harmful incident, not a recoverable bug. Accepting any
+client-supplied identifier as a lookup key reintroduces exactly the
+IDOR-shaped risk this principle exists to close — isolation MUST rest
+entirely on verified authentication identity, not on input validation of a
+free-text field.
 
 ### II. Input & Contract Validation
 
@@ -48,13 +68,14 @@ All request input MUST be validated through a DRF serializer before touching
 business logic or the database — no raw `request.data` access in views.
 Read and write concerns MUST use distinct serializers (e.g.
 `MoodEntrySerializer`/`MoodEntryCreateSerializer` in `therapist`,
-`UserSerializer` plus per-action write serializers in `accounts`) so
-that read-only fields (`id`, `ai_response`, `created_at`, `is_verified`,
-`is_staff`, etc.) can never be client-supplied. API surface changes MUST stay
-reflected in drf-spectacular schema output (`/api/docs/`, `/api/redoc/`).
+`UserSerializer`/`UserProfileUpdateSerializer` in `accounts`) so
+that read-only and identity-bearing fields (`id`, `ai_response`,
+`created_at`, `firebase_uid`, `email`, `username`, `is_staff`, etc.) can
+never be client-supplied. API surface changes MUST stay reflected in
+drf-spectacular schema output (`/api/docs/`, `/api/redoc/`).
 **Rationale**: Class-based views plus serializer validation is the existing
 convention; mixing concerns invites unvalidated input reaching the AI
-service, the database, or the authentication layer.
+service, the database, or identity-bearing fields.
 
 ### III. Resilient External AI Integration
 
@@ -74,54 +95,56 @@ the entry is still saved for later context.
 
 Every new or modified endpoint MUST have a corresponding test in that app's
 `tests.py` covering at least the success path and the primary failure mode
-(missing required field, missing/invalid identifier, external-call failure,
-or — where applicable — rate-limit exceeded). Tests MUST mock
-`generate_ai_response()`, `accounts`'s `send_password_reset_email()`/
-`send_verification_email()` stubs, or any other external or stubbed call —
-no test may perform a real network call to Groq or any other third-party
-service. `python manage.py test <app>` MUST pass for every touched app
-before a change is considered complete.
+(missing required field, unauthenticated/invalid-token request, or
+external-call failure). Tests MUST mock `generate_ai_response()`,
+`core.firebase_auth.auth.verify_id_token` (for any authenticated-flow test),
+`firebase_admin.auth.delete_user` (for account-deletion tests), or any other
+external or stubbed call — no test may perform a real network call to Groq,
+Firebase, or any other third-party service. `python manage.py test <app>`
+MUST pass for every touched app before a change is considered complete.
 **Rationale**: Network-dependent tests are slow, flaky, and burn real API
-quota; mocking is the only way to keep the suite fast and deterministic —
-this applies equally to the AI integration and to any future external
-integration (e.g. real email delivery).
+quota or hit live identity infrastructure; mocking is the only way to keep
+the suite fast, deterministic, and free of accidental side effects on a real
+Firebase project.
 
 ### V. Simplicity & Statelessness
 
 The AI service layer MUST remain a stateless wrapper over a remote API —
 no local model loading, no in-process ML inference, no caching layer unless
-a specific, demonstrated performance problem requires one. Features MUST be
-implemented with the smallest change that satisfies the requirement; new
-abstractions (base classes, generic helpers, config layers) require a
-concrete second use case before being introduced.
+a specific, demonstrated performance problem requires one. Authentication
+MUST likewise remain stateless on the Django side: Django verifies Firebase
+ID tokens per request and MUST NOT issue, store, or refresh its own
+credentials. Features MUST be implemented with the smallest change that
+satisfies the requirement; new abstractions (base classes, generic helpers,
+config layers) require a concrete second use case before being introduced.
 **Rationale**: The project's stated value (`CLAUDE.md`) is a lightweight,
-fast-cold-start backend with no GPU/local-model dependency — added
-complexity directly undermines that property.
+fast-cold-start backend with no GPU/local-model dependency and no
+credential-lifecycle code to maintain — added complexity directly undermines
+that property.
 
 ## Security & Deployment Requirements
 
-- Secrets (`GROQ_API_KEY`, `SECRET_KEY`) MUST be supplied via environment
-  variables; no secret may be hardcoded or committed, including in tests or
-  fixtures. `SECRET_KEY` also signs any JWTs issued by the project — it MUST
-  be a strong, non-default value in production.
+- Secrets (`GROQ_API_KEY`, `SECRET_KEY`, `FIREBASE_CREDENTIALS_PATH`) MUST be
+  supplied via environment variables; no secret may be hardcoded or
+  committed, including in tests or fixtures.
 - `DEBUG` MUST default to `False` and only be enabled via environment
   variable in non-production environments.
 - Any new deployed domain MUST be added to both `ALLOWED_HOSTS` and
   `CSRF_TRUSTED_ORIGINS` in `core/settings.py`.
-- New endpoints that accept user-supplied identifiers MUST validate them
-  with an explicit regex or serializer field constraint — free-text fields
-  used as lookup keys are not acceptable.
-- Token-based authentication MUST use explicit, bounded access/refresh token
-  lifetimes plus refresh-token rotation and blacklisting on logout (see
-  `SIMPLE_JWT` in `core/settings.py`) — no endpoint may rely on
-  indefinite-lifetime credentials.
-- Any endpoint that accepts or sets a password MUST enforce a minimum
-  server-side strength policy (see `accounts/validators.py`) — client-side
-  validation alone is not acceptable.
-- Authentication-sensitive endpoints (registration, sign-in, password
-  reset, email verification) MUST be rate-limited per account and per
-  originating IP address (see `accounts/throttling.py` for current
-  thresholds).
+- Identity MUST come exclusively from a Firebase ID token verified by
+  `core.firebase_auth.FirebaseAuthentication` (`Authorization: Bearer
+  <token>`). No endpoint may accept a user identifier from the request body
+  or query parameters for authentication or authorization purposes.
+  Missing, malformed, invalid, or expired tokens MUST result in 401 on every
+  protected endpoint, with no exceptions.
+- `firebase_admin.initialize_app(...)` MUST remain guarded (e.g. `if not
+  firebase_admin._apps`) and conditioned on `FIREBASE_CREDENTIALS_PATH` being
+  set, so that `manage.py check`/`makemigrations`/non-auth tests continue to
+  run in environments without real Firebase credentials (e.g. CI).
+- Operations that delete or mutate a user's Firebase identity (e.g. account
+  deletion) MUST fail closed: if the Firebase-side call errors, the
+  operation MUST log the failure and return an error response rather than
+  silently proceeding to mutate or delete the local Django record.
 - Static files MUST continue to be served via WhiteNoise in production; no
   endpoint may bypass `collectstatic` asset handling.
 
@@ -156,4 +179,4 @@ Versioning policy: MAJOR for removal/redefinition of a Core Principle,
 MINOR for a new principle or materially expanded section, PATCH for
 wording/clarification fixes with no rule change.
 
-**Version**: 1.1.0 | **Ratified**: 2026-06-19 | **Last Amended**: 2026-06-19
+**Version**: 2.0.0 | **Ratified**: 2026-06-19 | **Last Amended**: 2026-06-22
