@@ -34,6 +34,16 @@ Authentication is handled entirely by **Firebase Auth**: the client (e.g. a Flut
 
 ---
 
+## Live Deployment
+
+Deployed on Railway at [web-production-f8628.up.railway.app](https://web-production-f8628.up.railway.app):
+
+![MindEase API landing page deployed on Railway](docs/screenshots/railway-deployment.png)
+
+> The screenshot above reflects the currently live deployment, which predates the Firebase Auth migration documented in this README (the live landing page copy still references the old `user_id`-based contract). Redeploy this branch to bring the live site in line with the endpoints described below.
+
+---
+
 ## Technology Stack
 
 | Layer | Technology |
@@ -474,6 +484,6 @@ If you are in crisis, please reach out:
 
 ---
 
-**Built with Django REST Framework · Powered by Groq API (Llama 3.1 8B) · Authenticated via Firebase Auth**
+Built with Django REST Framework · Powered by Groq API (Llama 3.1 8B) · Authenticated via Firebase Auth
 
 Last Updated: June 22, 2026
