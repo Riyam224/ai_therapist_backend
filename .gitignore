@@ -1,9 +1,19 @@
-__pycache__/
-*.py[cod]
-*.sqlite3
+# Secrets / credentials
 .env
-.venv/
-media/
-.claude/
-.specs/
 firebase-credentials.json
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Django
+db.sqlite3
+staticfiles/
+
+# IDE / tooling
+.claude/
+.specify/
+
+# Misc
+*.log
