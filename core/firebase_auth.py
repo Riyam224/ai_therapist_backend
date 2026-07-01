@@ -1,4 +1,6 @@
+import json
 import logging
+import os
 
 import firebase_admin
 from django.conf import settings
@@ -11,10 +13,42 @@ from accounts.models import User
 
 logger = logging.getLogger(__name__)
 
-if not firebase_admin._apps and settings.FIREBASE_CREDENTIALS_PATH:
-    firebase_admin.initialize_app(
-        credentials.Certificate(settings.FIREBASE_CREDENTIALS_PATH)
+
+def _init_firebase():
+    """Initialize Firebase Admin SDK from either a raw JSON env var
+    (Railway/production) or a local file path (development).
+
+    JSON env var takes priority since it's the production-safe option.
+    """
+    if firebase_admin._apps:
+        return
+
+    firebase_creds_json = os.environ.get("FIREBASE_CREDENTIALS_JSON")
+
+    if firebase_creds_json:
+        try:
+            cred_dict = json.loads(firebase_creds_json)
+        except json.JSONDecodeError as exc:
+            logger.error("FIREBASE_CREDENTIALS_JSON is not valid JSON: %s", exc)
+            return
+        firebase_admin.initialize_app(credentials.Certificate(cred_dict))
+        logger.info("Firebase initialized from FIREBASE_CREDENTIALS_JSON env var.")
+        return
+
+    if settings.FIREBASE_CREDENTIALS_PATH:
+        firebase_admin.initialize_app(
+            credentials.Certificate(settings.FIREBASE_CREDENTIALS_PATH)
+        )
+        logger.info("Firebase initialized from FIREBASE_CREDENTIALS_PATH file.")
+        return
+
+    logger.warning(
+        "Firebase not initialized: neither FIREBASE_CREDENTIALS_JSON nor "
+        "FIREBASE_CREDENTIALS_PATH is set."
     )
+
+
+_init_firebase()
 
 
 class FirebaseAuthentication(BaseAuthentication):
