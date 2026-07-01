@@ -1,6 +1,7 @@
 # -----------------------------------------------------
 # Base settings
 # -----------------------------------------------------
+import sys
 import os
 from pathlib import Path
 import dj_database_url
@@ -13,7 +14,15 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "fallback-local-dev-key")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 FIREBASE_CREDENTIALS_PATH = os.environ.get("FIREBASE_CREDENTIALS_PATH", "")
 DEBUG = os.environ.get("DEBUG", "False") == "True"
-ALLOWED_HOSTS = ["*", ".railway.app"]
+ALLOWED_HOSTS = [
+    "web-production-f8628.up.railway.app",
+    ".railway.app",  # keep for any future railway subdomain changes
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "https://web-production-f8628.up.railway.app",
+]
+CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
     "https://web-production-f8628.up.railway.app",
@@ -31,6 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     "rest_framework",
     "drf_spectacular",
     "therapist",
@@ -43,6 +53,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",  # <-- مهم لخدمة static
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -184,3 +195,15 @@ to provide empathetic responses to your emotional entries.
         },
     ],
 }
+# -----------------------------------------------------
+# Production security hardening
+# -----------------------------------------------------
+TESTING = "test" in sys.argv
+
+if not DEBUG and not TESTING:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
