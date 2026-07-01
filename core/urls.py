@@ -24,7 +24,10 @@ from drf_spectacular.views import (
     SpectacularRedocView,
 )
 from django.views.generic import TemplateView
+from django.http import JsonResponse
 
+def health_check(request):
+    return JsonResponse({"status": "ok"})
 urlpatterns = [
     path("admin/", admin.site.urls),
     # todo home page
@@ -39,4 +42,6 @@ urlpatterns = [
         name="swagger-ui",
     ),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    # todo health check
+    path("health/", health_check, name="health"),
 ]

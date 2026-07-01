@@ -5,6 +5,8 @@ import sys
 import os
 from pathlib import Path
 import dj_database_url
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -212,3 +214,17 @@ if not DEBUG and not TESTING:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+
+# -----------------------------------------------------
+# Sentry error monitoring
+# -----------------------------------------------------
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
+
+if SENTRY_DSN and not DEBUG and not TESTING:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        traces_sample_rate=0.1,
+        send_default_pii=False,
+    )
