@@ -164,11 +164,11 @@ LOGGING = {
 
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "MindEase AI Therapist API",
+    "TITLE": "Lueur API",
     "DESCRIPTION": """
-## Welcome to MindEase API 🌸
+## Welcome to MindEase API  🌱
 
-MindEase is an AI-powered mood journal that uses GROQ AI 
+Lueur is an AI-powered mood journal that uses GROQ AI 
 to provide empathetic responses to your emotional entries.
 
 ### Features
