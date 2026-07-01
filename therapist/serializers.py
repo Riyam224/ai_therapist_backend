@@ -15,12 +15,17 @@ class MoodEntrySerializer(serializers.ModelSerializer):
 
 
 class MoodEntryCreateSerializer(serializers.ModelSerializer):
+    thoughts = serializers.CharField(max_length=5000)
     history = serializers.ListField(
         child=serializers.DictField(
-            child=serializers.CharField(),
+            child=serializers.CharField(
+                max_length=5000
+            ),
         ),
         required=False,
         default=list,
+        max_length=20,
+
     )
 
     class Meta:

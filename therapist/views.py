@@ -14,10 +14,13 @@ from django.conf import settings
 from django.utils import timezone
 from .models import MoodEntry
 import requests as http_requests
+from rest_framework.throttling import ScopedRateThrottle
 
 
 class GenerateResponseAPIView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "ai_generate"
 
     @extend_schema(
         tags=["Therapist"],
