@@ -130,3 +130,76 @@ class DeleteAccountTests(TestCase):
         response = self.client.delete("/api/accounts/delete-account/")
         self.assertEqual(response.status_code, 401)
         self.assertTrue(User.objects.filter(firebase_uid="alice").exists())
+
+
+class VerifyFirebaseTokenTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_missing_token_returns_400(self):
+        response = self.client.post(
+            "/api/auth/verify/", {}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+
+    @patch("accounts.views.firebase_auth_admin.verify_id_token")
+    def test_new_user_created_and_returns_flat_user_json(self, mock_verify):
+        mock_verify.return_value = {
+            "uid": "bob123",
+            "email": "bob@example.com",
+            "name": "Bob",
+            "picture": "https://example.com/bob.png",
+            "email_verified": True,
+        }
+        response = self.client.post(
+            "/api/auth/verify/",
+            {"firebase_token": "sometoken"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["firebase_uid"], "bob123")
+        self.assertEqual(response.data["email"], "bob@example.com")
+        self.assertEqual(response.data["name"], "Bob")
+        self.assertTrue(response.data["is_new_user"])
+        self.assertTrue(User.objects.filter(firebase_uid="bob123").exists())
+
+    @patch("accounts.views.firebase_auth_admin.verify_id_token")
+    def test_existing_user_reused_not_recreated(self, mock_verify):
+        mock_verify.return_value = {"uid": "bob123", "email": "bob@example.com"}
+        self.client.post(
+            "/api/auth/verify/", {"firebase_token": "sometoken"}, format="json"
+        )
+        response = self.client.post(
+            "/api/auth/verify/", {"firebase_token": "sometoken"}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["is_new_user"])
+        self.assertEqual(User.objects.filter(firebase_uid="bob123").count(), 1)
+
+    @patch("accounts.views.firebase_auth_admin.verify_id_token")
+    def test_invalid_token_returns_401(self, mock_verify):
+        from firebase_admin.auth import InvalidIdTokenError
+
+        mock_verify.side_effect = InvalidIdTokenError("bad token")
+        response = self.client.post(
+            "/api/auth/verify/", {"firebase_token": "bad"}, format="json"
+        )
+        self.assertEqual(response.status_code, 401)
+
+    @patch("accounts.views.firebase_auth_admin.verify_id_token")
+    def test_expired_token_returns_401(self, mock_verify):
+        from firebase_admin.auth import ExpiredIdTokenError
+
+        mock_verify.side_effect = ExpiredIdTokenError("expired", cause=None)
+        response = self.client.post(
+            "/api/auth/verify/", {"firebase_token": "expired"}, format="json"
+        )
+        self.assertEqual(response.status_code, 401)
+
+    @patch("accounts.views.firebase_auth_admin.verify_id_token")
+    def test_unexpected_error_returns_502(self, mock_verify):
+        mock_verify.side_effect = Exception("network error")
+        response = self.client.post(
+            "/api/auth/verify/", {"firebase_token": "sometoken"}, format="json"
+        )
+        self.assertEqual(response.status_code, 502)

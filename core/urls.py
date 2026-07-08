@@ -35,6 +35,7 @@ urlpatterns = [
     path("privacy/", TemplateView.as_view(template_name="privacy.html"), name="privacy"),
     path("api/therapist/", include("therapist.urls")),
     path("api/accounts/", include("accounts.urls")),
+    path("api/auth/", include("accounts.urls")),
     # API Documentation
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(

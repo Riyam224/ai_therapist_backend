@@ -35,3 +35,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError(exc.messages)
         return value
+
+
+class VerifyTokenSerializer(serializers.Serializer):
+    firebase_token = serializers.CharField()
