@@ -26,7 +26,7 @@ class GenerateResponseAPIView(APIView):
         tags=["Therapist"],
         summary="Generate AI response",
         description="""
-Send an emoji and your thoughts to Luna (AI Therapist).
+Send an emoji and your thoughts to Luna, your AI companion.
 Luna will respond with an empathetic, supportive message.
 
 The entry is automatically saved to your journal history.
