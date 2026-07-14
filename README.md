@@ -1,4 +1,4 @@
-# MindEase — AI Companion Backend
+#  lueur-backend — AI Companion
 
 A Django REST Framework backend that provides AI-powered emotional support, plus account/profile management. Users share their mood with an emoji and thoughts, and **Luna** (the AI companion) responds with an empathetic, personalised message. All entries are saved per user for history tracking and weekly reflections.
 
@@ -40,7 +40,7 @@ Authentication is handled entirely by **Firebase Auth**: the client (e.g. a Flut
 
 Deployed on Railway at [web-production-f8628.up.railway.app](https://web-production-f8628.up.railway.app):
 
-![MindEase API landing page deployed on Railway](docs/screenshots/railway-deployment.png)
+![Lueur API landing page deployed on Railway](docs/screenshots/railway-deployment.png)
 
 > The screenshot above reflects the currently live deployment, which predates the Firebase Auth migration documented in this README (the live landing page copy still references the old `user_id`-based contract). Redeploy this branch to bring the live site in line with the endpoints described below.
 
@@ -150,11 +150,11 @@ Interactive docs available at:
 
 #### Swagger UI
 
-![Swagger UI showing the six authenticated MindEase API endpoints](docs/screenshots/swagger-ui.png)
+![Swagger UI showing the six authenticated Lueur API endpoints](docs/screenshots/swagger-ui.png)
 
 #### ReDoc
 
-![ReDoc rendering of the MindEase API schema](docs/screenshots/redoc.png)
+![ReDoc rendering of the Lueur API schema](docs/screenshots/redoc.png)
 
 ---
 

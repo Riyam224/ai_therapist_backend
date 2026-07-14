@@ -1,4 +1,4 @@
-# CLAUDE.md - AI Therapist Backend
+# CLAUDE.md - Lueur Backend
 
 Technical documentation for Claude Code to understand and work with this Django project.
 
@@ -129,7 +129,7 @@ Registration, login, logout, token refresh, password reset, email verification, 
 **Core** ([requirements.txt](requirements.txt)):
 - `Django==5.1.4` — Web framework
 - `djangorestframework==3.17.1` — REST API
-- `drf-spectacular==0.27.2` — OpenAPI schema + Swagger/ReDoc (branded "MindEase AI Therapist API" in [core/settings.py](core/settings.py) `SPECTACULAR_SETTINGS`)
+- `drf-spectacular==0.27.2` — OpenAPI schema + Swagger/ReDoc (branded "Lueur API" in [core/settings.py](core/settings.py) `SPECTACULAR_SETTINGS`)
 - `requests==2.33.0` — HTTP client for Groq API calls
 - `gunicorn==25.3.0` — Production WSGI server
 - `whitenoise==6.5.0` — Static file serving for production
