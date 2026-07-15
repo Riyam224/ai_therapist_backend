@@ -125,23 +125,24 @@ Server runs at `http://127.0.0.1:8000/`
 
 ## API Endpoints
 
-All endpoints below require `Authorization: Bearer <firebase-id-token>`. There is no unauthenticated endpoint left in this API.
+Every endpoint below requires `Authorization: Bearer <firebase-id-token>` **except** `/api/accounts/verify/` (and its `/api/auth/verify/` alias), which is called right after Firebase sign-in — before the client has anything to put in that header — and `GET /health/`, used by Railway/uptime monitoring.
 
 ### Companion — Base URL: `/api/companion/`
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| POST | `/api/companion/generate/` | Submit mood, get Luna's AI response (scoped to the authenticated user) |
+| POST | `/api/companion/generate/` | Submit mood, get Luna's AI response (scoped to the authenticated user). Crisis-language input short-circuits before any Groq call. |
 | GET | `/api/companion/history/` | Get all saved entries for the authenticated user |
-| GET | `/api/companion/weekly-letter/` | Get Luna's weekly reflection letter for the authenticated user |
+| GET | `/api/companion/weekly-letter/` | Get Luna's weekly reflection letter and real streak stats for the authenticated user |
 
 ### Accounts — Base URL: `/api/accounts/`
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| GET | `/api/accounts/me/` | Get the authenticated user's profile |
-| PATCH | `/api/accounts/me/` | Update editable profile fields (`full_name`, `phone_number`, `bio`, `date_of_birth`, `gender`) |
-| DELETE | `/api/accounts/delete-account/` | Delete the user's Firebase identity and local account permanently |
+| Method | Endpoint | Auth | Description |
+| --- | --- | --- | --- |
+| GET | `/api/accounts/me/` | Required | Get the authenticated user's profile |
+| PATCH | `/api/accounts/me/` | Required | Update editable profile fields (`full_name`, `phone_number`, `bio`, `date_of_birth`, `gender`) |
+| DELETE | `/api/accounts/delete-account/` | Required | Delete the user's Firebase identity, journal entries, and local account permanently |
+| POST | `/api/accounts/verify/` (alias: `/api/auth/verify/`) | None | Verify a Firebase ID token, auto-creating the linked `accounts.User` on first sight |
 
 Registration, login, logout, token refresh, password reset, email verification, and profile-photo upload are **not** Django endpoints — they're handled entirely by Firebase Auth (and Firebase Storage for photos) on the client.
 
@@ -189,7 +190,8 @@ Submit a mood entry. Luna responds with an empathetic message that is saved to t
   "emoji": "😔",
   "thoughts": "Feeling overwhelmed with everything lately",
   "ai_response": "It sounds like you're carrying a lot right now...",
-  "created_at": "2026-06-22T10:30:00Z"
+  "created_at": "2026-06-22T10:30:00Z",
+  "crisis_flagged": false
 }
 ```
 
@@ -203,6 +205,34 @@ When the user feels better or resolved, Luna's `ai_response` will end with `[SES
 
 If the Groq API is unavailable, the entry is still saved with a fallback message:
 `"Luna is taking a little break right now. Please try again in a moment 🌿"`
+
+---
+
+### Crisis Detection
+
+`thoughts` is checked against a crisis-language pattern (`therapist/crisis.py`) **before** `generate_ai_response` is ever called — so Groq never sees crisis text. This runs at two layers for defense in depth: once in `GenerateResponseAPIView` and again inside `ai_model.generate_ai_response()` itself, in case anything else ever calls it directly.
+
+A match:
+
+- Skips the Groq call entirely
+- Saves the entry with a static support response (real crisis-line numbers, no AI-generated text)
+- Returns `crisis_flagged: true` in the response
+
+```json
+{
+  "id": 7,
+  "user_id": "1",
+  "emoji": "😔",
+  "thoughts": "I want to kill myself",
+  "ai_response": "It sounds like you're carrying something really heavy right now...\n\n• US: call or text 988 (Suicide & Crisis Lifeline)\n• Outside the US: https://findahelpline.com\n\n...",
+  "created_at": "2026-06-22T10:30:00Z",
+  "crisis_flagged": true
+}
+```
+
+The same check also runs when building `weekly-letter/`'s prompt: any past entry that matches is redacted to `"(a difficult moment)"` before its text is sent to Groq, so a flagged entry from earlier in the week can't leak into a third-party API call via the weekly summary.
+
+This is keyword-based pattern matching, not a clinical or diagnostic tool, and it **will** produce false positives on non-literal phrasing (e.g. "I can't go on watching this show"). That tradeoff is intentional — over-triggering toward a support message is safer than under-triggering and saying nothing.
 
 ---
 
