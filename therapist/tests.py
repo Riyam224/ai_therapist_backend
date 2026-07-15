@@ -3,11 +3,30 @@ from unittest.mock import patch
 from django.test import TestCase
 from rest_framework.test import APIClient
 
+from .crisis import contains_crisis_language
 from .models import MoodEntry
 
 
 def _auth_header(uid):
     return {"HTTP_AUTHORIZATION": "Bearer faketoken-" + uid}
+
+
+class CrisisDetectionUnitTests(TestCase):
+    def test_direct_statement_flagged(self):
+        self.assertTrue(contains_crisis_language("I want to kill myself"))
+        self.assertTrue(contains_crisis_language("sometimes I think about suicide"))
+
+    def test_case_insensitive(self):
+        self.assertTrue(contains_crisis_language("I WANT TO DIE"))
+        self.assertTrue(contains_crisis_language("I Want To Die"))
+
+    def test_normal_journal_text_not_flagged(self):
+        self.assertFalse(contains_crisis_language("I feel overwhelmed with work lately"))
+        self.assertFalse(contains_crisis_language("today was a good day, feeling grateful"))
+
+    def test_empty_input_not_flagged(self):
+        self.assertFalse(contains_crisis_language(""))
+        self.assertFalse(contains_crisis_language(None))
 
 
 class TherapistAuthIsolationTests(TestCase):
@@ -83,6 +102,51 @@ class TherapistAuthIsolationTests(TestCase):
         self.assertEqual(response_b.status_code, 200)
         self.assertEqual(len(response_b.data), 1)
         self.assertEqual(response_b.data[0]["thoughts"], "Entry two")
+
+    @patch("therapist.views.generate_ai_response")
+    def test_crisis_text_short_circuits_and_never_calls_groq(self, mock_generate):
+        response = self.client.post(
+            "/api/companion/generate/",
+            {"emoji": "😔", "thoughts": "I want to kill myself"},
+            format="json",
+            **_auth_header("user-a"),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["crisis_flagged"])
+        mock_generate.assert_not_called()
+
+    @patch("therapist.views.generate_ai_response")
+    def test_non_crisis_text_flags_false_and_calls_groq(self, mock_generate):
+        mock_generate.return_value = "Mocked AI response"
+        response = self.client.post(
+            "/api/companion/generate/",
+            {"emoji": "😊", "thoughts": "Great day!"},
+            format="json",
+            **_auth_header("user-a"),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["crisis_flagged"])
+        mock_generate.assert_called_once()
+
+    @patch("therapist.views.generate_ai_response")
+    def test_crisis_adjacent_non_literal_phrase(self, mock_generate):
+        """Reports the real result for a non-literal phrase rather than assuming
+        one way or the other — flagged for a product decision, not silently
+        resolved here."""
+        mock_generate.return_value = "Mocked AI response"
+        response = self.client.post(
+            "/api/companion/generate/",
+            {"emoji": "😩", "thoughts": "this exam is killing me"},
+            format="json",
+            **_auth_header("user-a"),
+        )
+        self.assertEqual(response.status_code, 200)
+        # NOTE: "killing me" does not match any CRISIS_KEYWORDS phrase
+        # (which require "kill myself", not "killing me"), so this is
+        # correctly NOT flagged. See test report for the false-positive
+        # phrase that DOES currently trip the pattern.
+        self.assertFalse(response.data["crisis_flagged"])
+        mock_generate.assert_called_once()
 
     @patch("therapist.views.http_requests.post")
     def test_weekly_letter_scopes_to_authenticated_user(self, mock_post):

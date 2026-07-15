@@ -8,6 +8,7 @@ from drf_spectacular.utils import (
     OpenApiResponse,
 )
 from .ai_model import generate_ai_response
+from .crisis import contains_crisis_language, CRISIS_RESPONSE
 from .serializers import MoodEntrySerializer, MoodEntryCreateSerializer
 from datetime import timedelta
 from django.conf import settings
@@ -99,6 +100,17 @@ The entry is automatically saved to your journal history.
         thoughts = input_serializer.validated_data["thoughts"]
         history = input_serializer.validated_data.get("history", [])[-10:]  # ← new
 
+        if contains_crisis_language(thoughts):
+            entry = MoodEntry.objects.create(
+                user_id=str(request.user.id),
+                emoji=emoji,
+                thoughts=thoughts,
+                ai_response=CRISIS_RESPONSE,
+            )
+            data = MoodEntrySerializer(entry).data
+            data["crisis_flagged"] = True
+            return Response(data, status=status.HTTP_200_OK)
+
         try:
             ai_reply = generate_ai_response(emoji, thoughts, history)  # ← pass history
         except Exception as e:
@@ -111,8 +123,9 @@ The entry is automatically saved to your journal history.
             thoughts=thoughts,
             ai_response=ai_reply,
         )
-
-        return Response(MoodEntrySerializer(entry).data, status=status.HTTP_200_OK)
+        data = MoodEntrySerializer(entry).data
+        data["crisis_flagged"] = False
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class AllHistoryAPIView(APIView):

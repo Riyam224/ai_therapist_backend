@@ -3,6 +3,8 @@ import time
 
 import requests
 
+from .crisis import contains_crisis_language, CRISIS_RESPONSE
+
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_TIMEOUT = (5, 15)  # (connect, read) seconds
 GROQ_MAX_ATTEMPTS = 2
@@ -54,6 +56,9 @@ WHAT YOU MUST NEVER DO:
 
 
 def generate_ai_response(emoji, thoughts, history=None):
+    if contains_crisis_language(thoughts):
+        return CRISIS_RESPONSE
+
     history = history or []
 
     url = "https://api.groq.com/openai/v1/chat/completions"
