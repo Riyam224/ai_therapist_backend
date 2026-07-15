@@ -263,6 +263,8 @@ Luna writes a personal letter summarising the authenticated user's emotional wee
 
 Requires at least **2 entries** in the past 7 days; returns `null` with a reason otherwise.
 
+`stats.streak` is a real consecutive-day count (`calculate_streak()` in `therapist/views.py`), not just the number of entries — it walks backward from today (or yesterday, if nothing was logged today) and stops at the first gap. Any crisis-flagged entry in the window is redacted before its text is sent to Groq for the letter itself — see [Crisis Detection](#crisis-detection).
+
 **Response (200)**:
 
 ```json
