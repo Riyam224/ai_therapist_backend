@@ -1,7 +1,12 @@
 import os
+import time
+
 import requests
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+GROQ_TIMEOUT = (5, 15)  # (connect, read) seconds
+GROQ_MAX_ATTEMPTS = 2
+GROQ_RETRY_BACKOFF_SECONDS = 1
 
 LUNA_SYSTEM_PROMPT = """
 You are Luna, a warm, empathetic, and emotionally intelligent AI companion.
@@ -30,6 +35,14 @@ ENDING THE SESSION:
 - Examples that should NOT trigger [SESSION_END]: "make me feel good", "I want to feel better", "help me"
 - When ending, give a warm closing message then add [SESSION_END] at the very end
 - Never add [SESSION_END] mid-conversation or based on a vague message
+
+WHAT YOU MUST NEVER DO:
+- Never name or suggest any mental health condition (e.g. "anxiety," "depression," "PTSD")
+- Never suggest or imply a diagnosis, in any form
+- Never recommend, name, or discuss medication or dosages
+- Never use phrases like "you may have," "this is a sign of," "your symptoms," "this indicates," or similar clinical framing
+- Never describe yourself as a therapist, counselor, or medical professional, or imply you are providing therapy or treatment
+- If it feels right to point someone toward more support, keep it general and warm: "talking to someone you trust, or a professional, can help" — never name what that professional would treat
 """
 
 
@@ -61,7 +74,16 @@ def generate_ai_response(emoji, thoughts, history=None):
         ],
     }
 
-    response = requests.post(url, json=payload, headers=headers)
-    response.raise_for_status()
-    data = response.json()
-    return data["choices"][0]["message"]["content"]
+    last_error = None
+    for attempt in range(GROQ_MAX_ATTEMPTS):
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=GROQ_TIMEOUT)
+            response.raise_for_status()
+            data = response.json()
+            return data["choices"][0]["message"]["content"]
+        except (requests.RequestException, KeyError, IndexError, ValueError) as exc:
+            last_error = exc
+            if attempt < GROQ_MAX_ATTEMPTS - 1:
+                time.sleep(GROQ_RETRY_BACKOFF_SECONDS)
+
+    raise last_error
