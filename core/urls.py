@@ -26,6 +26,8 @@ from drf_spectacular.views import (
 from django.views.generic import TemplateView
 from django.http import JsonResponse
 
+from accounts.views import VerifyFirebaseTokenView
+
 def health_check(request):
     return JsonResponse({"status": "ok"})
 urlpatterns = [
@@ -34,7 +36,7 @@ urlpatterns = [
     path("privacy/", TemplateView.as_view(template_name="privacy.html"), name="privacy"),
     path("api/companion/", include("therapist.urls")),
     path("api/accounts/", include("accounts.urls")),
-    path("api/auth/", include("accounts.urls")),
+    path("api/auth/verify/", VerifyFirebaseTokenView.as_view(), name="verify-token-legacy"),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(
         "api/docs/",
