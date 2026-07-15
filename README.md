@@ -14,11 +14,12 @@ Every journal entry is checked for crisis language **before** it ever reaches an
 
 ### Companion (`/api/companion/`)
 
-- **Luna AI responses** — warm, empathetic replies via Groq's fast cloud API
+- **Luna AI responses** — warm, empathetic replies via Groq's fast cloud API, with automatic retry (2 attempts, short backoff) and a graceful fallback message if Groq is unreachable
 - **Multi-turn conversations** — pass conversation history so Luna maintains context across messages
 - **Session detection** — Luna appends `[SESSION_END]` when the user feels resolved; clients use this to close sessions
+- **Crisis detection** — journal text is checked for crisis language *before* any AI call, at both the endpoint and the AI-service layer; a match returns a static support response (with real hotline numbers) and `crisis_flagged: true`, and is redacted before ever appearing in a weekly letter prompt — see [Crisis Detection](#crisis-detection)
 - **Mood journal** — every entry (emoji + thoughts + AI reply) is saved per user
-- **Weekly letter** — Luna writes a personal weekly reflection based on recent entries
+- **Weekly letter** — Luna writes a personal weekly reflection based on recent entries, including a real consecutive-day streak (not just an entry count)
 - **Per-user data isolation** — every entry is scoped to the authenticated user (`request.user`); no client-supplied identifier is ever accepted
 
 ### Accounts (`/api/accounts/`)
@@ -26,12 +27,13 @@ Every journal entry is checked for crisis language **before** it ever reaches an
 - **Firebase-backed identity** — registration, login, logout, password reset, email verification, Google/Apple sign-in are all handled by Firebase Auth on the client; Django only verifies the resulting ID token
 - **Custom user model** — `accounts.User` (email as `USERNAME_FIELD`), linked to Firebase via a nullable, unique `firebase_uid`, auto-created on first sight of a new Firebase identity
 - **Profile management** — view/update profile (`full_name`, `phone_number`, `bio`, `date_of_birth`, `gender`); identity-bearing fields (`firebase_uid`, `email`, `username`, staff flags) are never client-writable
-- **Account deletion** — deletes both the Firebase identity and the local Django record; fails closed (no local deletion) if the Firebase-side call errors
+- **Account deletion** — deletes the Firebase identity, all of the user's `MoodEntry` rows, then the local Django record; fails closed (nothing deleted) if the Firebase-side call errors. Users who can't open the app can request the same deletion by email — see [Account Deletion](#account-deletion)
 - **Consistent response envelope** — every endpoint returns `{"success": bool, "message": str, "data": {...}}` or `{"success": false, "message": str, "errors": {...}}`
 
 ### General
 
 - **Interactive API docs** — Swagger UI at `/api/docs/`, ReDoc at `/api/redoc/`
+- **Health check** — `GET /health/` (unauthenticated) for Railway and uptime monitoring
 - **Production-ready** — Railway deployment with Gunicorn + WhiteNoise
 
 ---
