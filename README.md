@@ -40,11 +40,11 @@ Every journal entry is checked for crisis language **before** it ever reaches an
 
 ## Live Deployment
 
-Deployed on Railway at [web-production-f8628.up.railway.app](https://web-production-f8628.up.railway.app):
+Deployed on Railway at [web-production-f8628.up.railway.app](https://web-production-f8628.up.railway.app).
 
-![Lueur API landing page deployed on Railway](docs/screenshots/railway-deployment.png)
+The screenshots below are taken from this branch running locally and reflect the current homepage, privacy policy, and API docs. Redeploy this branch to bring the live Railway site in line with what's shown here.
 
-> The screenshot above reflects the currently live deployment, which predates the Firebase Auth migration documented in this README (the live landing page copy still references the old `user_id`-based contract). Redeploy this branch to bring the live site in line with the endpoints described below.
+![Lueur homepage](docs/screenshots/homepage.png)
 
 ---
 
@@ -95,7 +95,7 @@ Flutter client → Firebase Auth → Firebase ID Token → Django API
 ```bash
 # 1. Clone and enter the project
 git clone <repository-url>
-cd ai_therapist_backend
+cd lueur-backend
 
 # 2. Create and activate virtual environment
 python -m venv venv
@@ -158,6 +158,12 @@ Interactive docs available at:
 #### ReDoc
 
 ![ReDoc rendering of the Lueur API schema](docs/screenshots/redoc.png)
+
+#### Privacy Policy
+
+Served at `/privacy/` — required for both the Google Play and App Store listings.
+
+![Lueur privacy policy page](docs/screenshots/privacy-policy.png)
 
 ---
 
@@ -337,35 +343,39 @@ Both paths share one implementation, so there's no risk of the manual path doing
 ## Project Structure
 
 ```text
-ai_therapist_backend/
+lueur-backend/
 ├── core/
 │   ├── settings.py        # Project settings (env-var driven)
-│   ├── urls.py            # Root URL routing
+│   ├── urls.py            # Root URL routing (incl. /health/ and the /api/auth/verify/ alias)
 │   ├── firebase_auth.py   # FirebaseAuthentication DRF backend + OpenAPI scheme
 │   ├── wsgi.py
 │   └── asgi.py
 ├── therapist/
 │   ├── models.py          # MoodEntry model
-│   ├── views.py           # GenerateResponseAPIView, AllHistoryAPIView, WeeklyLetterAPIView (all IsAuthenticated)
+│   ├── views.py           # GenerateResponseAPIView, AllHistoryAPIView, WeeklyLetterAPIView, calculate_streak()
 │   ├── serializers.py     # MoodEntrySerializer, MoodEntryCreateSerializer (no user_id field)
-│   ├── ai_model.py        # Groq API integration (generate_ai_response)
+│   ├── ai_model.py        # Groq integration — generate_ai_response(), generate_weekly_letter(), shared _call_groq() retry helper
+│   ├── crisis.py          # contains_crisis_language(), CRISIS_RESPONSE
 │   ├── urls.py            # App URL patterns
 │   ├── tests.py
 │   └── migrations/
 ├── accounts/
 │   ├── models.py          # User (AUTH_USER_MODEL, has firebase_uid)
 │   ├── managers.py        # UserManager (email-based create_user/create_superuser)
-│   ├── views.py           # MeView, DeleteAccountView only
-│   ├── serializers.py     # UserSerializer, UserProfileUpdateSerializer
+│   ├── views.py           # MeView, DeleteAccountView, VerifyFirebaseTokenView
+│   ├── services.py        # Response envelope helpers + delete_user_account() (shared by the API and the management command)
+│   ├── serializers.py     # UserSerializer, UserProfileUpdateSerializer, VerifyTokenSerializer
 │   ├── validators.py      # Phone format only
-│   ├── services.py        # Response envelope helpers only
-│   ├── urls.py            # App URL patterns (me/, delete-account/)
+│   ├── management/commands/
+│   │   └── delete_user_by_email.py  # Fulfils web-based deletion requests from the privacy policy
+│   ├── urls.py            # App URL patterns (me/, delete-account/, verify/)
 │   ├── tests.py
 │   └── migrations/
 ├── templates/
-│   └── index.html         # Home page
+│   ├── index.html         # Home page
+│   └── privacy.html       # Privacy policy (served at /privacy/)
 ├── docs/
-│   └── screenshots/       # API docs screenshots (this README)
+│   └── screenshots/       # Homepage, privacy policy, Swagger UI, ReDoc screenshots (this README)
 ├── manage.py
 ├── requirements.txt
 ├── Procfile                # Gunicorn config for Railway
@@ -413,22 +423,23 @@ heroku run python manage.py migrate
 - [ ] `FIREBASE_CREDENTIALS_PATH` set (**required**)
 - [ ] Strong `SECRET_KEY` set
 - [ ] `DEBUG=False`
-- [ ] Restrict `ALLOWED_HOSTS` to your domain
+- [x] `ALLOWED_HOSTS` restricted to specific Railway/production domains (no `"*"`)
+- [x] CORS headers (`django-cors-headers`) configured for the Flutter client's origin
+- [x] `GET /health/` available for uptime monitoring
 - [ ] Switch to PostgreSQL
-- [ ] Add CORS headers (`django-cors-headers`) if frontend is on a different domain
-- [ ] Add error logging (Sentry)
-- [ ] Set up monitoring and health checks
+- [ ] Add error logging (Sentry) — referenced in the privacy policy as already in use; confirm `SENTRY_DSN` is actually set in this environment
 
 ---
 
 ## Testing
 
 ```bash
-python manage.py test therapist
-python manage.py test accounts
+python manage.py test           # full suite (42 tests)
+python manage.py test therapist # generate/history/weekly-letter, crisis detection, streak calc
+python manage.py test accounts  # profile, delete-account, verify, delete_user_by_email command
 ```
 
-Tests never hit real external services — mock `generate_ai_response()` for Groq calls and `core.firebase_auth.auth.verify_id_token` / `accounts.views.firebase_auth_admin.delete_user` for Firebase calls:
+Tests never hit real external services — mock `generate_ai_response()` / `therapist.ai_model.requests.post` for Groq calls, `core.firebase_auth.auth.verify_id_token` for token verification, and `accounts.services.firebase_auth_admin.delete_user` for Firebase account deletion. The `delete_user_by_email` and account-deletion cascade tests hit the real (test) database directly and assert on actual row counts, not just mock call assertions — this matters because a deletion path is exactly the kind of thing you don't want to trust to "the mock was called":
 
 ```python
 from unittest.mock import patch
@@ -545,4 +556,4 @@ If you are in crisis, please reach out:
 
 Built with Django REST Framework · Powered by Groq API (Llama 3.1 8B) · Authenticated via Firebase Auth
 
-Last Updated: June 22, 2026
+Last Updated: July 15, 2026
