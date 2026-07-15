@@ -1,5 +1,16 @@
 <!--
 Sync Impact Report
+- Version change: 2.0.0 → 2.0.1
+- Modified: wording only — "AI Therapist Backend Constitution" → "Lueur Wellness
+  Companion Backend Constitution"; Principle I rationale "mental health
+  application" → "wellness companion application". No rule, requirement, or
+  behavior changed. Brings the constitution's self-description in line with
+  the non-clinical framing already applied to CLAUDE.md, the Groq system
+  prompt, the privacy policy, and the OpenAPI schema description.
+- Templates requiring updates: none (wording-only change)
+- Follow-up TODOs: none
+
+Sync Impact Report (previous amendment)
 - Version change: 1.1.0 → 2.0.0
 - Modified principles:
   - I. Data Isolation & Privacy — redefined: isolation is no longer enforced
@@ -40,7 +51,7 @@ Sync Impact Report
 - Follow-up TODOs: none
 -->
 
-# AI Therapist Backend Constitution
+# Lueur Wellness Companion Backend Constitution
 
 ## Core Principles
 
@@ -54,7 +65,7 @@ query parameter) for the purpose of looking up, filtering, or modifying
 data — `therapist.MoodEntry.user_id` MUST always be populated from
 `str(request.user.id)` server-side, never from client input. No endpoint may
 return or aggregate data across users.
-**Rationale**: This is a mental health application handling sensitive
+**Rationale**: This is a wellness companion application handling sensitive
 personal disclosures. A single cross-user data leak is a trust-ending and
 potentially harmful incident, not a recoverable bug. Accepting any
 client-supplied identifier as a lookup key reintroduces exactly the
@@ -179,4 +190,4 @@ Versioning policy: MAJOR for removal/redefinition of a Core Principle,
 MINOR for a new principle or materially expanded section, PATCH for
 wording/clarification fixes with no rule change.
 
-**Version**: 2.0.0 | **Ratified**: 2026-06-19 | **Last Amended**: 2026-06-22
+**Version**: 2.0.1 | **Ratified**: 2026-06-19 | **Last Amended**: 2026-07-15

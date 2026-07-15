@@ -4,7 +4,7 @@ Technical documentation for Claude Code to understand and work with this Django 
 
 ## Project Overview
 
-This is a Django REST Framework application that provides an AI-powered mental health support API. It uses the **Groq API with Llama 3.1 8B Instant model** to generate empathetic responses to user mood inputs. The AI companion is named **Luna**.
+This is a Django REST Framework application that provides an AI-powered wellness companion API. It uses the **Groq API with Llama 3.1 8B Instant model** to generate empathetic responses to user mood inputs. The AI companion is named **Luna**.
 
 ## Architecture
 
@@ -12,8 +12,8 @@ This is a Django REST Framework application that provides an AI-powered mental h
 
 - **Django Project**: `core/` - Main project configuration
 - **Django App**: `therapist/` - Main application handling mood entries and AI responses
-- **Django App**: `accounts/` - Custom user model, JWT authentication, and account/profile management
-- **Database**: SQLite (default), easily swappable for PostgreSQL/MySQL
+- **Django App**: `accounts/` - Custom user model, Firebase-verified identity, and account/profile management
+- **Database**: PostgreSQL on Railway (via `dj-database-url`/`psycopg2`), SQLite fallback for local dev
 - **AI Service**: Groq API (external REST API) accessed via [therapist/ai_model.py](therapist/ai_model.py)
 - **Auth**: Firebase Authentication — the Flutter client owns sign-in/sign-up/password-reset/email-verification/Google/Apple via Firebase; Django only verifies Firebase ID tokens via [core/firebase_auth.py](core/firebase_auth.py) and resolves them to `request.user`. Django never issues or refreshes tokens itself.
 - **API Docs**: drf-spectacular (Swagger UI at `/api/docs/`, ReDoc at `/api/redoc/`)
@@ -85,6 +85,7 @@ This is a Django REST Framework application that provides an AI-powered mental h
   - `/admin/` → Django admin interface
   - `/api/companion/` → Includes companion (therapist) app URLs
   - `/api/accounts/` → Includes accounts app URLs
+  - `/api/auth/verify/` → `VerifyFirebaseTokenView` directly (legacy path kept for the existing Flutter client; identical to `/api/accounts/verify/`)
   - `/api/schema/` → OpenAPI schema
   - `/api/docs/` → Swagger UI
   - `/api/redoc/` → ReDoc UI
@@ -98,8 +99,9 @@ This is a Django REST Framework application that provides an AI-powered mental h
 
 ### Full API Endpoints
 
-All endpoints below (except none — every endpoint now requires auth) require `Authorization: Bearer <firebase-id-token>`. Missing/invalid/expired token → `401 Unauthorized`.
+All endpoints below require `Authorization: Bearer <firebase-id-token>` and are scoped to `request.user`, **except** `POST /api/accounts/verify/` (and its legacy alias `/api/auth/verify/`), which is `AllowAny` since it's called immediately after Firebase sign-in, before the client has anything to send as a Bearer token. Missing/invalid/expired token → `401 Unauthorized` on every other endpoint.
 
+- `POST /api/accounts/verify/` (alias: `POST /api/auth/verify/`) — Verify a Firebase ID token and create/return the linked Django user (no auth required)
 - `POST /api/companion/generate/` — Create mood entry with AI response, scoped to `request.user`
 - `GET /api/companion/history/` — Retrieve entries for the authenticated user
 - `GET /api/companion/weekly-letter/` — Get Luna's weekly letter for the authenticated user
