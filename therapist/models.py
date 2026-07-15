@@ -14,3 +14,6 @@ class MoodEntry(models.Model):
     class Meta:
         verbose_name = "MoodEntry"
         verbose_name_plural = "MoodEntries"
+        indexes = [
+            models.Index(fields=["user_id", "-created_at"], name="therapist_userid_created_idx"),
+        ]
