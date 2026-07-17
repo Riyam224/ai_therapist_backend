@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -14,6 +16,8 @@ from datetime import timedelta
 from django.utils import timezone
 from .models import MoodEntry
 from rest_framework.throttling import ScopedRateThrottle
+
+logger = logging.getLogger(__name__)
 
 
 class GenerateResponseAPIView(APIView):
@@ -112,7 +116,7 @@ The entry is automatically saved to your journal history.
         try:
             ai_reply = generate_ai_response(emoji, thoughts, history)
         except Exception as e:
-            print(f"GROQ AI error: {e}")
+            logger.error("Groq AI error: %s", e)
             ai_reply = "Luna is taking a little break right now. Please try again in a moment 🌿"
 
         entry = MoodEntry.objects.create(
@@ -248,7 +252,7 @@ class WeeklyLetterAPIView(APIView):
             letter_content = generate_weekly_letter(formatted_entries, entries_count, dominant_emoji)
         except Exception as e:
             letter_content = None
-            print(f"Error generating weekly letter: {e}")
+            logger.error("Error generating weekly letter: %s", e)
 
         return Response(
             {

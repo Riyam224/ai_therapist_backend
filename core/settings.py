@@ -13,7 +13,6 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Move to Railway environment variables
 SECRET_KEY = os.environ.get("SECRET_KEY", "fallback-local-dev-key")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 FIREBASE_CREDENTIALS_PATH = os.environ.get("FIREBASE_CREDENTIALS_PATH", "")
@@ -191,7 +190,7 @@ header. See the FirebaseAuth scheme below.
     "VERSION": "1.0.0",
     "CONTACT": {
         "name": "Riyam",
-        "email": "your@email.com",
+        "email": "riyam.thekluge@gmail.com",
     },
     "LICENSE": {"name": "MIT"},
     "SERVE_INCLUDE_SCHEMA": False,

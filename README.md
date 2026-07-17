@@ -38,13 +38,13 @@ Every journal entry is checked for crisis language **before** it ever reaches an
 
 ---
 
-## Live Deployment
+## Demo
 
 Deployed on Railway at [web-production-f8628.up.railway.app](https://web-production-f8628.up.railway.app).
 
-The screenshots below are taken from this branch running locally and reflect the current homepage, privacy policy, and API docs. Redeploy this branch to bring the live Railway site in line with what's shown here.
+The screenshots below are taken from this branch running locally and reflect the current homepage, privacy policy, and API docs — six clean endpoints, the `MoodEntry` schema, the request lifecycle, and the production stack, all on one page.
 
-![Lueur homepage](docs/screenshots/homepage.png)
+![Lueur homepage — API overview, endpoints, MoodEntry schema, request lifecycle, and stack](docs/screenshots/homepage.png)
 
 ---
 
@@ -153,7 +153,7 @@ Interactive docs available at:
 
 #### Swagger UI
 
-![Swagger UI showing the six authenticated Lueur API endpoints](docs/screenshots/swagger-ui.png)
+![Swagger UI showing the Companion and Accounts endpoint groups, plus the request/response schemas](docs/screenshots/swagger-ui.png)
 
 #### ReDoc
 
@@ -556,4 +556,4 @@ If you are in crisis, please reach out:
 
 Built with Django REST Framework · Powered by Groq API (Llama 3.1 8B) · Authenticated via Firebase Auth
 
-Last Updated: July 15, 2026
+Last Updated: July 17, 2026
