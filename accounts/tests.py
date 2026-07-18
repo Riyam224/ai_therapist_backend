@@ -268,7 +268,7 @@ class DeleteUserByEmailCommandTests(TestCase):
 
     @patch("accounts.services.firebase_auth_admin.delete_user")
     def test_firebase_failure_propagates_and_keeps_local_row(self, mock_delete):
-        user = User.objects.create(
+        User.objects.create(
             email="keepme@example.com",
             firebase_uid="keepme-uid",
             username="keepme-uid",
