@@ -402,5 +402,5 @@ ai_therapist_backend/
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/002-migrate-authentication-simplejwt/plan.md`
+`specs/003-admin-dashboard/plan.md`
 <!-- SPECKIT END -->

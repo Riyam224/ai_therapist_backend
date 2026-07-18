@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from therapist.models import MoodEntry
 
+from .admin import UserAdmin
 from .models import User
 
 
@@ -278,3 +279,95 @@ class DeleteUserByEmailCommandTests(TestCase):
             call_command("delete_user_by_email", "keepme@example.com")
 
         self.assertTrue(User.objects.filter(email="keepme@example.com").exists())
+
+
+class UserAdminConfigTests(TestCase):
+    def test_list_filter_and_ordering_configured(self):
+        self.assertIn("is_active", UserAdmin.list_filter)
+        self.assertIn("is_verified", UserAdmin.list_filter)
+        self.assertIn("is_staff", UserAdmin.list_filter)
+        self.assertEqual(UserAdmin.ordering, ("-created_at",))
+
+    def test_mood_entry_count_reflects_actual_entries_and_links_to_filtered_list(self):
+        user = User.objects.create(
+            email="counted@example.com", username="counted", firebase_uid="counted-uid"
+        )
+        MoodEntry.objects.create(
+            user_id=str(user.id), emoji="😊", thoughts="one", ai_response="ok"
+        )
+        MoodEntry.objects.create(
+            user_id=str(user.id), emoji="😔", thoughts="two", ai_response="ok"
+        )
+
+        admin_instance = UserAdmin(User, None)
+        result = admin_instance.mood_entry_count(user)
+
+        self.assertIn("2", str(result))
+        self.assertIn(str(user.id), str(result))
+
+
+class UserAdminDeleteAccountActionTests(TestCase):
+    """Exercises the admin "Delete account and journal entries" action.
+    These assert directly against the database, not just mock calls, per
+    the same pattern used in DeleteAccountTests above."""
+
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(
+            email="admin@example.com", password="irrelevant"
+        )
+        self.client.force_login(self.superuser)
+        self.user = User.objects.create(
+            email="target@example.com",
+            firebase_uid="target-uid",
+            username="target-uid",
+        )
+        MoodEntry.objects.create(
+            user_id=str(self.user.id), emoji="😊", thoughts="one", ai_response="ok"
+        )
+        MoodEntry.objects.create(
+            user_id=str(self.user.id), emoji="😔", thoughts="two", ai_response="ok"
+        )
+
+    def _post_action(self, confirm=True):
+        data = {
+            "action": "delete_account_action",
+            "_selected_action": [str(self.user.pk)],
+        }
+        if confirm:
+            data["post"] = "yes"
+        return self.client.post("/admin/accounts/user/", data, follow=True)
+
+    @patch("accounts.services.firebase_auth_admin.delete_user")
+    def test_confirmed_action_deletes_user_and_mood_entries_for_real(
+        self, mock_delete
+    ):
+        user_id = self.user.id
+
+        response = self._post_action(confirm=True)
+
+        self.assertEqual(response.status_code, 200)
+        mock_delete.assert_called_once_with("target-uid")
+        self.assertFalse(User.objects.filter(id=user_id).exists())
+        self.assertEqual(MoodEntry.objects.filter(user_id=str(user_id)).count(), 0)
+
+    def test_unconfirmed_action_shows_confirmation_and_deletes_nothing(self):
+        response = self._post_action(confirm=False)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(User.objects.filter(id=self.user.id).exists())
+        self.assertContains(response, "target@example.com")
+
+    @patch("accounts.services.firebase_auth_admin.delete_user")
+    def test_firebase_failure_keeps_user_and_mood_entries_and_shows_error(
+        self, mock_delete
+    ):
+        mock_delete.side_effect = Exception("network error")
+        user_id = self.user.id
+
+        response = self._post_action(confirm=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(User.objects.filter(id=user_id).exists())
+        self.assertEqual(MoodEntry.objects.filter(user_id=str(user_id)).count(), 2)
+        messages = [str(m) for m in response.context["messages"]]
+        self.assertTrue(any("Failed to delete" in m for m in messages))

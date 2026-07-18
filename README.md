@@ -431,6 +431,25 @@ heroku run python manage.py migrate
 
 ---
 
+## Admin Dashboard
+
+A staff-only operational dashboard is available at `/admin/` (stock Django Admin — no third-party theme). Staff (`is_staff=True`) accounts can:
+
+- Browse and search `MoodEntry` journal content (filterable by date and crisis-flagged status)
+- Browse `User` accounts, with a per-user journal-entry count linking to that user's filtered entries
+- Run "Delete account and journal entries" on a selected user — a confirmation-gated action that calls the same `delete_user_account()` used by the self-service API and the `delete_user_by_email` management command
+- View a live "Overview" summary on the admin index page: active users, journal entries in the last 7/30 days, crisis-flagged entries in the last 7/30 days, and the average check-in streak across users with at least one entry
+
+**Creating a superuser on Railway**: use the Railway CLI's one-off command runner (or the Railway dashboard's equivalent):
+
+```bash
+railway run python manage.py createsuperuser
+```
+
+No non-staff account can reach `/admin/` — access is gated by Django's standard `is_staff` requirement, not a custom permission layer.
+
+---
+
 ## Testing
 
 ```bash

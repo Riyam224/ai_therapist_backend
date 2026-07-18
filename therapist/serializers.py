@@ -11,6 +11,7 @@ class MoodEntrySerializer(serializers.ModelSerializer):
             "ai_response": {"read_only": True},
             "created_at": {"read_only": True},
             "id": {"read_only": True},
+            "crisis_flagged": {"read_only": True},
         }
 
 

@@ -28,6 +28,10 @@ from django.http import JsonResponse
 
 from accounts.views import VerifyFirebaseTokenView
 
+admin.site.site_header = "Lueur Admin"
+admin.site.site_title = "Lueur Admin"
+admin.site.index_title = "Dashboard"
+
 def health_check(request):
     return JsonResponse({"status": "ok"})
 urlpatterns = [

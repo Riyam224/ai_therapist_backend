@@ -108,9 +108,9 @@ The entry is automatically saved to your journal history.
                 emoji=emoji,
                 thoughts=thoughts,
                 ai_response=CRISIS_RESPONSE,
+                crisis_flagged=True,
             )
             data = MoodEntrySerializer(entry).data
-            data["crisis_flagged"] = True
             return Response(data, status=status.HTTP_200_OK)
 
         try:
@@ -124,9 +124,9 @@ The entry is automatically saved to your journal history.
             emoji=emoji,
             thoughts=thoughts,
             ai_response=ai_reply,
+            crisis_flagged=False,
         )
         data = MoodEntrySerializer(entry).data
-        data["crisis_flagged"] = False
         return Response(data, status=status.HTTP_200_OK)
 
 

@@ -6,6 +6,7 @@ class MoodEntry(models.Model):
     emoji = models.CharField(max_length=10)
     thoughts = models.TextField()
     ai_response = models.TextField()
+    crisis_flagged = models.BooleanField(default=False, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

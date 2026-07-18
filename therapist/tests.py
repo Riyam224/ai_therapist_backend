@@ -5,6 +5,7 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from .admin import MoodEntryAdmin
 from .crisis import contains_crisis_language
 from .models import MoodEntry
 from .views import calculate_streak
@@ -274,3 +275,29 @@ class TherapistAuthIsolationTests(TestCase):
         self.assertNotIn("kill myself", formatted_entries_sent)
         self.assertIn("(a difficult moment)", formatted_entries_sent)
         self.assertIn("had a good day", formatted_entries_sent)
+
+
+class MoodEntryAdminConfigTests(TestCase):
+    def test_crisis_flagged_and_date_hierarchy_filters_configured(self):
+        self.assertIn("crisis_flagged", MoodEntryAdmin.list_filter)
+        self.assertEqual(MoodEntryAdmin.date_hierarchy, "created_at")
+
+    def test_created_at_is_readonly(self):
+        self.assertIn("created_at", MoodEntryAdmin.readonly_fields)
+
+    def test_list_display_uses_preview_methods_not_raw_textfields(self):
+        self.assertNotIn("thoughts", MoodEntryAdmin.list_display)
+        self.assertNotIn("ai_response", MoodEntryAdmin.list_display)
+        self.assertIn("thoughts_preview", MoodEntryAdmin.list_display)
+        self.assertIn("ai_response_preview", MoodEntryAdmin.list_display)
+
+    def test_preview_methods_truncate_long_text(self):
+        entry = MoodEntry.objects.create(
+            user_id="user-1",
+            emoji="😊",
+            thoughts="x" * 200,
+            ai_response="y" * 200,
+        )
+        admin_instance = MoodEntryAdmin(MoodEntry, None)
+        self.assertLess(len(admin_instance.thoughts_preview(entry)), 200)
+        self.assertLess(len(admin_instance.ai_response_preview(entry)), 200)
