@@ -38,6 +38,7 @@ AUTH_USER_MODEL = "accounts.User"
 # Installed apps
 # -----------------------------------------------------
 INSTALLED_APPS = [
+    "jazzmin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -50,6 +51,20 @@ INSTALLED_APPS = [
     "therapist",
     "accounts",
 ]
+
+# -----------------------------------------------------
+# Jazzmin admin theme
+# -----------------------------------------------------
+JAZZMIN_SETTINGS = {
+    "site_title": "Lueur Admin",
+    "site_header": "Lueur Admin",
+    "site_brand": "Lueur Admin",
+    "welcome_sign": "Welcome to the Lueur Admin dashboard",
+    "copyright": "Lueur",
+}
+JAZZMIN_UI_TWEAKS = {
+    "theme": "flatly",
+}
 
 # -----------------------------------------------------
 # Middleware + WhiteNoise
