@@ -4,7 +4,7 @@ import time
 import requests
 
 from .crisis import contains_crisis_language, CRISIS_RESPONSE
-from .groq_budget_guard import check_and_reserve_budget, estimate_tokens, BUDGET_EXCEEDED_MESSAGE
+from .groq_budget_guard import check_and_reserve_budget, estimate_tokens, get_fallback_message
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -92,7 +92,7 @@ def generate_ai_response(emoji, thoughts, history=None):
     history = history or []
 
     if not check_and_reserve_budget(estimate_tokens(LUNA_SYSTEM_PROMPT + str(history) + thoughts)):
-        return BUDGET_EXCEEDED_MESSAGE
+        return get_fallback_message()
 
     payload = {
         "model": GROQ_MODEL,
