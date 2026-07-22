@@ -9,22 +9,30 @@
 
 /* ─── Design tokens ─────────────────────────────────────────── */
 :root {
-  --bg:       #170f08;
-  --surface:  #1d140b;
-  --card:     #221808;
-  --code:     #140d07;
+  --bg:       #FDFBF4; /* Blossom White */
+  --surface:  #FBF6EA;
+  --card:     #FFFFFF;
+  --code:     #2E2140; /* deep violet — dark code card kept for contrast/legibility */
 
-  --border:   rgba(242, 134, 39, 0.14);
-  --border-h: rgba(242, 134, 39, 0.32);
+  --border:   rgba(122, 90, 159, 0.16);
+  --border-h: rgba(122, 90, 159, 0.36);
 
-  --p:    #F28627; /* Tangerine Glow — primary accent */
-  --pb:   #f7a968; /* lighter tangerine — hero gradient text, links, GET badges */
-  --pk:   #F2AE2E; /* Golden Honey — secondary accent, used sparingly */
-  --mint: #6fbf73; /* kept as a functional success/POST-method green, outside the brand palette */
+  --p:    #7A5A9F; /* deep Violet Glow — primary accent, buttons */
+  --pb:   #6B4E91; /* darker violet — links, hero gradient text, GET badges (WCAG-safe on light bg) */
+  --pk:   #9C6A09; /* dark gold, derived from Sunlit Yellow — secondary accent */
+  --mint: #3F7A34; /* dark Spring Green — success/POST-method */
 
-  --text:  #f3e7d8; /* warm cream-tinted light text (readable on the dark --bg) */
-  --muted: #b8a890; /* muted warm-gray text for a dark background */
-  --dim:   #4a3423;
+  --lavender: #C7A9D9; /* Lavender Mist — soft tints, blobs, tag borders */
+  --yellow:   #F6E36B; /* Sunlit Yellow — background fills only, never used as text */
+  --violet:   #8A6DAF; /* Violet Glow — decorative icons, blobs */
+
+  --text:  #2E2140; /* deep violet-black — high-contrast body text on the light bg */
+  --muted: #6B5D7A; /* muted violet-gray, ~6:1 contrast on --bg */
+  --dim:   #8577A0;
+
+  --code-text:  #F1EBFA; /* light text for the dark code card */
+  --code-muted: #B7A9D6; /* muted punctuation inside the dark code card */
+  --code-ok:    #7FD97A; /* bright success green inside the dark code card */
 
   --font-body: 'Plus Jakarta Sans', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -74,7 +82,7 @@ body {
 #cur-ring {
   width: 34px;
   height: 34px;
-  border: 1.5px solid rgba(242, 134, 39, 0.35);
+  border: 1.5px solid rgba(122, 90, 159, 0.35);
   transition: width 0.2s, height 0.2s;
 }
 
@@ -84,8 +92,8 @@ body::before {
   position: fixed;
   inset: 0;
   background-image:
-    linear-gradient(rgba(242, 134, 39, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(242, 134, 39, 0.04) 1px, transparent 1px);
+    linear-gradient(rgba(122, 90, 159, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(122, 90, 159, 0.055) 1px, transparent 1px);
   background-size: 56px 56px;
   pointer-events: none;
   z-index: 0;
@@ -101,9 +109,9 @@ body::before {
   animation: blob-float 9s ease-in-out infinite;
 }
 
-.b1 { width: 520px; height: 520px; background: rgba(242, 134, 39, 0.07); top: -120px; left: -100px; }
-.b2 { width: 380px; height: 380px; background: rgba(242, 174, 46, 0.05); bottom: 0;    right: -80px; animation-delay: 3s; }
-.b3 { width: 280px; height: 280px; background: rgba(111, 191, 115, 0.04);   top: 45%;    left: 55%;   animation-delay: 6s; }
+.b1 { width: 520px; height: 520px; background: rgba(199, 169, 217, 0.35); top: -120px; left: -100px; }
+.b2 { width: 380px; height: 380px; background: rgba(246, 227, 107, 0.30); bottom: 0;    right: -80px; animation-delay: 3s; }
+.b3 { width: 280px; height: 280px; background: rgba(95, 161, 76, 0.16);   top: 45%;    left: 55%;   animation-delay: 6s; }
 
 @keyframes blob-float {
   0%, 100% { transform: translate(0, 0); }
@@ -127,9 +135,9 @@ nav {
   right: 0;
   z-index: 100;
   padding: 16px 0;
-  border-bottom: 1px solid rgba(242, 134, 39, 0.07);
+  border-bottom: 1px solid rgba(122, 90, 159, 0.12);
   backdrop-filter: blur(24px);
-  background: rgba(23, 15, 8, 0.75);
+  background: rgba(253, 251, 244, 0.85);
 }
 
 .nav-i {
@@ -164,7 +172,7 @@ nav {
 .nav-v {
   font-family: var(--font-mono);
   font-size: 10px;
-  background: rgba(242, 134, 39, 0.1);
+  background: rgba(122, 90, 159, 0.1);
   border: 1px solid var(--border);
   color: var(--pb);
   padding: 3px 9px;
@@ -189,7 +197,7 @@ nav {
 
 .nl:hover {
   color: var(--text);
-  background: rgba(242, 134, 39, 0.07);
+  background: rgba(122, 90, 159, 0.07);
 }
 
 .nl-cta {
@@ -200,13 +208,13 @@ nav {
   padding: 8px 18px;
   border-radius: var(--radius-sm);
   text-decoration: none;
-  box-shadow: 0 0 22px rgba(242, 134, 39, 0.35);
+  box-shadow: 0 0 22px rgba(122, 90, 159, 0.35);
   transition: transform 0.2s var(--ease-out), box-shadow 0.2s;
 }
 
 .nl-cta:hover {
   transform: translateY(-2px);
-  box-shadow: 0 0 40px rgba(242, 134, 39, 0.55);
+  box-shadow: 0 0 40px rgba(122, 90, 159, 0.55);
 }
 
 /* ─── Hero ──────────────────────────────────────────────────── */
@@ -235,8 +243,8 @@ nav {
   font-size: 10px;
   font-weight: 500;
   color: var(--mint);
-  background: rgba(111, 191, 115, 0.07);
-  border: 1px solid rgba(111, 191, 115, 0.18);
+  background: rgba(63, 122, 52, 0.07);
+  border: 1px solid rgba(63, 122, 52, 0.18);
   padding: 5px 13px;
   border-radius: 20px;
   margin-bottom: 22px;
@@ -294,13 +302,13 @@ h1 em {
   padding: 13px 22px;
   border-radius: 11px;
   text-decoration: none;
-  box-shadow: 0 0 28px rgba(242, 134, 39, 0.38);
+  box-shadow: 0 0 28px rgba(122, 90, 159, 0.38);
   transition: transform 0.2s var(--ease-out), box-shadow 0.2s;
 }
 
 .btn-p:hover {
   transform: translateY(-2px);
-  box-shadow: 0 0 48px rgba(242, 134, 39, 0.58);
+  box-shadow: 0 0 48px rgba(122, 90, 159, 0.58);
 }
 
 .btn-s {
@@ -319,8 +327,8 @@ h1 em {
 }
 
 .btn-s:hover {
-  border-color: rgba(242, 134, 39, 0.38);
-  background: rgba(242, 134, 39, 0.05);
+  border-color: rgba(122, 90, 159, 0.38);
+  background: rgba(122, 90, 159, 0.05);
 }
 
 .stats {
@@ -351,7 +359,7 @@ h1 em {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(242, 134, 39, 0.04);
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(122, 90, 159, 0.04);
   animation: card-float 5s ease-in-out infinite;
 }
 
@@ -360,7 +368,7 @@ h1 em {
   align-items: center;
   justify-content: space-between;
   padding: 11px 15px;
-  background: rgba(242, 134, 39, 0.04);
+  background: rgba(122, 90, 159, 0.04);
   border-bottom: 1px solid var(--border);
 }
 
@@ -379,13 +387,13 @@ h1 em {
 .cc-lbl {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--muted);
+  color: var(--code-muted);
 }
 
 .cc-ok {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--mint);
+  color: var(--code-ok);
 }
 
 pre {
@@ -394,6 +402,7 @@ pre {
   font-size: 11.5px;
   line-height: 1.85;
   overflow-x: auto;
+  color: var(--code-text);
 }
 
 pre::-webkit-scrollbar { height: 3px; }
@@ -406,7 +415,7 @@ pre::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 2px; }
 .ky  { color: #82aaff; }
 .cm  { color: #546e7a; font-style: italic; }
 .fn  { color: #82aaff; }
-.pu  { color: var(--muted); }
+.pu  { color: var(--code-muted); }
 .vl  { color: var(--mint); }
 .pk  { color: var(--pk); }
 
@@ -474,9 +483,9 @@ h2 {
   margin-top: 3px;
 }
 
-.m-post   { background: rgba(111, 191, 115, 0.1);   color: var(--mint); border: 1px solid rgba(111, 191, 115, 0.18); }
-.m-get    { background: rgba(242, 134, 39, 0.1); color: var(--pb);   border: 1px solid rgba(242, 134, 39, 0.18); }
-.m-delete { background: rgba(242, 174, 46, 0.1); color: var(--pk);   border: 1px solid rgba(242, 174, 46, 0.18); }
+.m-post   { background: rgba(63, 122, 52, 0.1);   color: var(--mint); border: 1px solid rgba(63, 122, 52, 0.18); }
+.m-get    { background: rgba(122, 90, 159, 0.1); color: var(--pb);   border: 1px solid rgba(122, 90, 159, 0.18); }
+.m-delete { background: rgba(156, 106, 9, 0.1); color: var(--pk);   border: 1px solid rgba(156, 106, 9, 0.18); }
 
 .ep-path {
   font-family: var(--font-mono);
@@ -509,15 +518,15 @@ h2 {
   color: var(--muted);
 }
 
-.pill-g { color: var(--mint); background: rgba(111, 191, 115, 0.05);   border-color: rgba(111, 191, 115, 0.14); }
-.pill-p { color: var(--pb);   background: rgba(242, 134, 39, 0.05); border-color: rgba(242, 134, 39, 0.14); }
+.pill-g { color: var(--mint); background: rgba(63, 122, 52, 0.05);   border-color: rgba(63, 122, 52, 0.14); }
+.pill-p { color: var(--pb);   background: rgba(122, 90, 159, 0.05); border-color: rgba(122, 90, 159, 0.14); }
 
 .ep-badge {
   font-size: 10px;
   font-weight: 600;
-  background: rgba(242, 174, 46, 0.08);
+  background: rgba(156, 106, 9, 0.08);
   color: var(--pk);
-  border: 1px solid rgba(242, 174, 46, 0.18);
+  border: 1px solid rgba(156, 106, 9, 0.18);
   padding: 4px 10px;
   border-radius: 20px;
   white-space: nowrap;
@@ -557,7 +566,7 @@ h2 {
 
 .fs:hover .fi {
   border-color: var(--p);
-  box-shadow: 0 0 18px rgba(242, 134, 39, 0.22);
+  box-shadow: 0 0 18px rgba(122, 90, 159, 0.22);
   transform: translateY(-3px);
 }
 
@@ -573,7 +582,7 @@ h2 {
 .fa {
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, rgba(242, 134, 39, 0.25), rgba(242, 134, 39, 0.06));
+  background: linear-gradient(90deg, rgba(122, 90, 159, 0.25), rgba(122, 90, 159, 0.06));
   position: relative;
   min-width: 28px;
   margin-top: -30px;
@@ -584,7 +593,7 @@ h2 {
   position: absolute;
   right: -5px;
   top: -9px;
-  color: rgba(242, 134, 39, 0.35);
+  color: rgba(122, 90, 159, 0.35);
   font-size: 16px;
 }
 
@@ -657,7 +666,7 @@ h2 {
   justify-content: space-between;
   padding: 14px 20px;
   border-bottom: 1px solid var(--border);
-  background: rgba(242, 134, 39, 0.04);
+  background: rgba(122, 90, 159, 0.04);
 }
 
 .model-title {
@@ -680,14 +689,14 @@ h2 {
   grid-template-columns: 140px 80px 1fr;
   gap: 16px;
   padding: 10px 20px;
-  border-bottom: 1px solid rgba(242, 134, 39, 0.06);
+  border-bottom: 1px solid rgba(122, 90, 159, 0.06);
   align-items: center;
   transition: background 0.2s;
 }
 
 .mf:last-child { border: none; }
 
-.mf:hover { background: rgba(242, 134, 39, 0.04); }
+.mf:hover { background: rgba(122, 90, 159, 0.04); }
 
 .mf-name {
   font-family: var(--font-mono);
@@ -699,8 +708,8 @@ h2 {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--pk);
-  background: rgba(242, 174, 46, 0.08);
-  border: 1px solid rgba(242, 174, 46, 0.15);
+  background: rgba(156, 106, 9, 0.08);
+  border: 1px solid rgba(156, 106, 9, 0.15);
   padding: 2px 7px;
   border-radius: 5px;
   text-align: center;
@@ -730,7 +739,7 @@ h2 {
   width: 360px;
   height: 360px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(242, 134, 39, 0.07) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(122, 90, 159, 0.07) 0%, transparent 70%);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -1082,42 +1091,42 @@ footer {
     </div>
     <div class="feat-g rv">
       <div class="fc">
-        <div class="fc-ico" style="background:rgba(111,191,115,.1)">💙</div>
+        <div class="fc-ico" style="background:rgba(63, 122, 52,.1)">💙</div>
         <div class="fc-t">Flutter</div>
         <div class="fc-d">Cross-platform mobile app powering Lueur's plant-growth UI, Firebase Auth sign-in, and real-time Luna conversations.</div>
       </div>
       <div class="fc">
-        <div class="fc-ico" style="background:rgba(111,191,115,.1)">🐍</div>
+        <div class="fc-ico" style="background:rgba(63, 122, 52,.1)">🐍</div>
         <div class="fc-t">Django REST Framework</div>
         <div class="fc-d">Battle-tested Python API framework with automatic serialization, browsable API, and clean URL routing.</div>
       </div>
       <div class="fc">
-        <div class="fc-ico" style="background:rgba(242,134,39,.1)">⚡</div>
+        <div class="fc-ico" style="background:rgba(122, 90, 159,.1)">⚡</div>
         <div class="fc-t">GROQ — llama 3.1</div>
         <div class="fc-d">Ultra-fast LLM inference using GROQ's LPU chip. 10–20× faster than traditional GPU inference.</div>
       </div>
       <div class="fc">
-        <div class="fc-ico" style="background:rgba(242,174,46,.1)">🚂</div>
+        <div class="fc-ico" style="background:rgba(156, 106, 9,.1)">🚂</div>
         <div class="fc-t">Railway Deployment</div>
         <div class="fc-d">Auto-deploy from GitHub with environment variables, zero-config HTTPS, and custom domain support.</div>
       </div>
       <div class="fc">
-        <div class="fc-ico" style="background:rgba(242,174,46,.1)">📖</div>
+        <div class="fc-ico" style="background:rgba(156, 106, 9,.1)">📖</div>
         <div class="fc-t">OpenAPI 3.0 Docs</div>
         <div class="fc-d">Auto-generated Swagger UI + ReDoc documentation with live request testing and schema download.</div>
       </div>
       <div class="fc">
-        <div class="fc-ico" style="background:rgba(111,191,115,.1)">🔒</div>
+        <div class="fc-ico" style="background:rgba(63, 122, 52,.1)">🔒</div>
         <div class="fc-t">Firebase Auth</div>
         <div class="fc-d">Every endpoint is protected. Flutter clients authenticate via Firebase; the backend verifies ID tokens and derives identity server-side.</div>
       </div>
       <div class="fc">
-        <div class="fc-ico" style="background:rgba(242,134,39,.1)">💾</div>
+        <div class="fc-ico" style="background:rgba(122, 90, 159,.1)">💾</div>
         <div class="fc-t">Persistent Storage</div>
         <div class="fc-d">Every mood entry is saved to the database. Full journal history with timestamps and unique IDs.</div>
       </div>
       <div class="fc">
-        <div class="fc-ico" style="background:rgba(242,174,46,.1)">🛟</div>
+        <div class="fc-ico" style="background:rgba(156, 106, 9,.1)">🛟</div>
         <div class="fc-t">Crisis Detection</div>
         <div class="fc-d">Journal text is checked for crisis language before it ever reaches Groq — at both the endpoint and the AI-service layer. Matches short-circuit to a static support response with real hotline numbers.</div>
       </div>
